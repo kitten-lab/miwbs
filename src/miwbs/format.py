@@ -310,6 +310,43 @@ def echo_line(msg: str) -> str:
     return f"[bold red] E C H O [/bold red]  {safe(msg)}"
 
 
+def position_memory_success(
+    ref: str,
+    title: str,
+    body: str,
+) -> str:
+    """
+    @desc save report (prolog-shaped)::
+
+      SUCCESS : [#SELF-0001]   Position memory updated. "Title"
+
+      E C H O : <description body>
+    """
+    ref_raw = (ref or "—").strip().lstrip("#") or "—"
+    # Escape [#REF] so Rich does not treat [ as markup
+    ref_bracket = safe(f"[#{ref_raw}]")
+    title_s = safe((title or "").strip() or "—")
+    head = (
+        f"[bold green] SUCCESS [/bold green][green]:[/green]  "
+        f"{ref_bracket}[green]   Position memory updated. \"{title_s}\"[/green]"
+    )
+    # Reprint body under ECHO (preserve line breaks; escape for Rich)
+    raw = body if body is not None else ""
+    from .studio_text import is_studio, strip_studio_header
+
+    if is_studio(raw):
+        raw = strip_studio_header(raw)
+    raw = raw if raw.strip() else "(empty)"
+    # Multi-line: tag on first line, body follows indented slightly
+    lines = raw.splitlines() or ["(empty)"]
+    if len(lines) == 1:
+        echo = f"[bold red] E C H O [/bold red][red]:[/red]  {safe(lines[0])}"
+    else:
+        body_block = "\n".join(f"  {safe(ln)}" for ln in lines)
+        echo = f"[bold red] E C H O [/bold red][red]:[/red]\n{body_block}"
+    return join_blocks(head, echo, gap=1)
+
+
 def join_blocks(*blocks: str | None, gap: int = 1) -> str:
     """Join non-empty blocks with blank-line discipline (no double clutter)."""
     parts = [b.strip("\n") for b in blocks if b and b.strip()]

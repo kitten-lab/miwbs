@@ -4910,9 +4910,6 @@ def _apply_desc_payload(
 
     if mode == "set":
         new_desc = prepare_stored_text(text, studio=want_studio)
-        msg = f"Description updated · {fmt.named_ref(tname, ref)}"
-        if want_studio or is_studio(new_desc):
-            msg += "  ·  studio text"
     else:
         if not (base_stored or "").strip():
             new_desc = prepare_stored_text(text, studio=want_studio or base_is_studio)
@@ -4925,16 +4922,16 @@ def _apply_desc_payload(
                 new_desc = base_stored.rstrip() + "\n\n" + text
             else:
                 new_desc = base_stored.rstrip() + "\n" + text
-        msg = f"Description appended · {fmt.named_ref(tname, ref)}"
-        if is_studio(new_desc):
-            msg += "  ·  studio text"
 
     world.set_description(tid, new_desc)
     world.undo_stack.push(
         f"@desc {label}",
         lambda w, iid=tid, p=prior: w.set_description(iid, p),
     )
-    return fmt.ok(msg)
+    fresh = world.get_instance(tid) or target
+    title = display_name(fresh.name)
+    body_show = fresh.description if fresh.description is not None else new_desc
+    return fmt.position_memory_success(ref, title, body_show or "")
 
 
 def _desc_commit(

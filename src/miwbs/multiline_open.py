@@ -407,14 +407,22 @@ def _commit_desc(world, session: MultilineSession, body: str):
         note="editor save",
     )
 
+    # Sync cycle node title/body when mentalor
+    try:
+        from .commands import _mentalor_pull_place
+
+        _mentalor_pull_place(world)
+    except Exception:  # noqa: BLE001
+        pass
+
+    fresh = world.get_instance(tid) or inst
     ref = world.short_ref_of(tid)
-    msg = (
-        f"Description updated · "
-        f"{fmt.named_ref(display_name(inst.name), ref)}"
+    title = display_name(fresh.name)
+    body_show = fresh.description if fresh.description is not None else stored
+    return CommandResult(
+        True,
+        fmt.position_memory_success(ref, title, body_show or ""),
     )
-    if session.studio or is_studio(stored):
-        msg += "  ·  studio text"
-    return CommandResult(True, fmt.ok(msg))
 
 
 def _record_book_revision(world, session: MultilineSession, body: str) -> None:
