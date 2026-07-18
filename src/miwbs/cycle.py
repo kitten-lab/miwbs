@@ -1,8 +1,9 @@
 """
 Mentalor time spine: Cycle + splice-path nodes.
 
-Not multiverse timeline/realm. Face: CYC ʞ.ʞ · CYC ʞ.1 · CYC 0.ʞ · …
-ʞ (kras) = before numbered 0 — both the first cycle and the first node point.
+Not multiverse timeline/realm. Face: CYC ʞ · CYC ʞ.1 · CYC 0.ʞ · …
+ʞ (kras) = before numbered 0 — nothing first, not even 0.
+  Day of Days cycle + origin path collapse to just ``CYC ʞ``.
 Item history will hang on this spine later.
 
 Onion skin is deferred. Studio @desc sculpts the current node body.
@@ -180,10 +181,10 @@ def _display_cycle_id(cycle_id: str) -> str:
 
 def _display_node_path(path: str) -> str:
     """
-    Node path for the face: first point is kras, not 0.
+    Node path for the face: segment 0 is kras (before numbered 0).
 
     Internal storage still uses 0, 1, 2… and 0.x splices.
-    Display maps segment ``0`` → ``ʞ`` so start is nothing-before-zero.
+    Display maps segment ``0`` → ``ʞ`` — nothing first, not even 0.
     """
     raw = path if path else "0"
     parts = raw.split(".")
@@ -198,13 +199,17 @@ def _display_node_path(path: str) -> str:
 
 def face_address(cycle_id: str, path: str) -> str:
     """
-    Short form: ``CYC ʞ.ʞ`` · ``CYC ʞ.1`` · ``CYC 0.ʞ``.
+    Short form: ``CYC ʞ`` · ``CYC ʞ.1`` · ``CYC 0.ʞ``.
 
-    Kras marks *before* 0 on both cycle and first node point.
-    Space after CYC; cycle and path joined with ``.``.
+    Kras is *before* 0 on cycle and on the origin path. At Day of Days
+    origin (cycle ʞ + path 0) the face is just ``CYC ʞ`` — nothing first,
+    not even a trailing .0 / .ʞ. Elsewhere cycle and path join with ``.``.
     """
     c = _display_cycle_id(cycle_id)
     p = _display_node_path(path if path else "0")
+    # Pure origin: just kras — no second point yet
+    if c == "ʞ" and p == "ʞ":
+        return "CYC ʞ"
     return f"CYC {c}.{p}"
 
 
@@ -404,7 +409,7 @@ def sync_world_to_current(world: World) -> str:
 
 
 def remember_header_line(world: World, place_name: str) -> str | None:
-    """Look lead: OBSERVING: <cyan title>  <dim CYC ʞ.ʞ>"""
+    """Look lead: OBSERVING: <cyan title>  <dim CYC ʞ>"""
     if not is_mentalor(world):
         return None
     from .format import safe

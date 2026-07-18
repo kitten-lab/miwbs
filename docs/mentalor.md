@@ -21,7 +21,7 @@ Cycle N  — bootstraps after prior totalizing runs
 
 Node     — position on a cycle; unit of concept-space writing
 Path     — splice chain (1 → between → 1.1 → after → 1.2 → before 1.1 → 1.0.1)
-Face     — CYC ʞ.ʞ · CYC ʞ.1 · CYC 0.ʞ  (kras ʞ = before 0 on cycle *and* first node)
+Face     — CYC ʞ · CYC ʞ.1 · CYC 0.ʞ  (kras = nothing first, before 0; origin is just ʞ)
 ```
 
 Later extensions of the **same** spine (not parallel clocks):
