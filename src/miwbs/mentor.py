@@ -1,24 +1,131 @@
 """
-VEN Mentor — hidden production machinery inside MIWBS.
+VEN Mentor — production machinery inside MIWBS (hidden from first-verbs help).
 
-Not first-stage face verbs. Import when a story beat needs form production:
+Day of Days doctrine:
+  - World starts with concept primes only (SELF + Concept).
+  - Types are taught in this workshop as thinking produces them — not ambient
+    person/place/bin KINDS.
+  - create_ven in mentalor mode only allows kinds that exist as mentor types.
 
-    from miwbs.mentor_workshop import Workshop
-    from miwbs.mentor_skyline import skyline_ok, skyline_fail
+Usage later (when face verbs arrive)::
 
-Doctrine:
-  - World DB on Day of Days holds only SELF (concept prime) until you produce more.
-  - Types are not ambient KINDS furniture — they are taught in the workshop
-    (and later may derive from primes).
-  - Primes → type is the long game; this module is the workshop side channel.
+    from miwbs import mentor
+    ws = mentor.workshop_for(world)
+    ws.mint_type("place", "the sense of location")
 """
 
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .db import get_meta, set_meta
 from .mentor_skyline import skyline_fail, skyline_ok
 from .mentor_workshop import Workshop, parse_flags
+
+if TYPE_CHECKING:
+    from .world import World
+
+META_WORKSHOP_PATH = "mentor_workshop_path"
 
 __all__ = [
     "Workshop",
     "parse_flags",
     "skyline_ok",
     "skyline_fail",
+    "workshop_for",
+    "bootstrap_world_workshop",
+    "allowed_kinds",
+    "assert_kind_allowed",
 ]
+
+
+def _workshop_root() -> Path:
+    d = Path.home() / ".aidm" / "miwbs" / "workshops"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def workshop_path_for(world: World) -> Path:
+    """Stable workshop file per world DB (path stored in meta)."""
+    existing = get_meta(world.conn, META_WORKSHOP_PATH, "") or ""
+    if existing.strip():
+        return Path(existing.strip())
+    # Fingerprint: world_name + first ven id if any
+    wname = get_meta(world.conn, "world_name", "world") or "world"
+    row = world.conn.execute(
+        "SELECT id FROM vens ORDER BY created_at LIMIT 1"
+    ).fetchone()
+    seed = f"{wname}:{row['id'] if row else 'empty'}"
+    h = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+    path = _workshop_root() / f"{h}.workshop.json"
+    set_meta(world.conn, META_WORKSHOP_PATH, str(path))
+    return path
+
+
+def workshop_for(world: World) -> Workshop:
+    return Workshop(workshop_path_for(world))
+
+
+def bootstrap_world_workshop(
+    world: World,
+    initial_types: tuple[str, ...] = ("concept",),
+) -> Workshop:
+    """
+    Ensure mentor workshop exists with only the given types (default: concept).
+
+    Does not install person/place/thing — those must be minted when thinking
+    produces them.
+    """
+    ws = workshop_for(world)
+    # Fresh workshop still empty of types after Workshop.__init__
+    for name in initial_types:
+        key = name.strip().lower()
+        if not key or key in ws.types:
+            continue
+        desc = {
+            "concept": (
+                "The sense of Concept — root type. Primes of this kind "
+                "(SELF, Concept) stand before person/place/thing."
+            ),
+        }.get(key, f"Type taught at Day of Days: {key}.")
+        try:
+            ws.mint_type(key, desc)
+        except ValueError:
+            pass
+    return ws
+
+
+def allowed_kinds(world: World) -> frozenset[str]:
+    """
+    Kinds legal for create in this world.
+
+    Mentalor: only mentor-taught types (starts as {concept}).
+    Classic seeds: full KINDS table.
+    """
+    from . import cycle as cycle_mod
+    from .world import KINDS
+
+    if not cycle_mod.is_mentalor(world):
+        return frozenset(KINDS)
+    ws = workshop_for(world)
+    taught = frozenset(ws.types.keys())
+    return taught if taught else frozenset({"concept"})
+
+
+def assert_kind_allowed(world: World, kind: str) -> None:
+    """Raise ValueError if kind is not mentored yet (mentalor) / unknown."""
+    k = (kind or "").strip().lower()
+    allowed = allowed_kinds(world)
+    if k not in allowed:
+        from . import cycle as cycle_mod
+
+        if cycle_mod.is_mentalor(world):
+            shown = ", ".join(sorted(allowed)) or "concept"
+            raise ValueError(
+                f"type {k!r} is not taught yet. "
+                f"Only mentored types may be formed: {shown}. "
+                f"(Teach new types as thinking produces them.)"
+            )
+        raise ValueError(f"Unknown kind {k!r}; expected one of {tuple(sorted(allowed))}")

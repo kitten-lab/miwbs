@@ -62,6 +62,20 @@ Stored as lore rows; in mentalor voice they print as **considerations**.
 
 ## Seed
 
-`--seed mentalor` (default): **only one VEN** — **SELF** as kind **`concept`** (root of all concepts). No place, realm, timeline, or type furniture in the DB. Remember surface = SELF instance + Cycle ʞ nodes. Title starts as *the pressure of something*.
+`--seed mentalor` (default):
 
-Types are taught later (mentor workshop is merged as hidden code: `miwbs.mentor` / `mentor_workshop`). Primes may later *become* types — not pre-seeded Earth roots.
+| VEN | Kind | Role |
+|-----|------|------|
+| **Concept** | concept | The concept of Concept (prime only; not instantiated) |
+| **SELF** | concept | The Thinker — player / remember surface |
+
+No person, place, bin, realm, timeline, or other kinds in the DB.  
+Mentor workshop starts with **one taught type: `concept`**. Further types are minted as thinking produces them; `create person` etc. **fails until that type is taught**.
+
+Remember surface = SELF instance + Cycle ʞ nodes.
+
+```text
+from miwbs import mentor
+ws = mentor.workshop_for(world)
+ws.mint_type("place", "the sense of location")  # then create place is allowed
+```

@@ -193,7 +193,18 @@ def dispatch(world: World, line: str) -> CommandResult:
         if cmd in ("undo", "u"):
             return CommandResult(True, _undo(world))
         if cmd == "kinds":
-            return CommandResult(True, fmt.hint("VEN kinds: " + ", ".join(KINDS)))
+            from . import cycle as cycle_mod
+            from . import mentor as mentor_mod
+
+            allowed = sorted(mentor_mod.allowed_kinds(world))
+            label = (
+                "taught types (mentor)"
+                if cycle_mod.is_mentalor(world)
+                else "VEN kinds"
+            )
+            return CommandResult(
+                True, fmt.hint(f"{label}: " + ", ".join(allowed))
+            )
         # Narrative refuse — not "Unknown command" tool voice
         word = cmd if cmd else "that"
         return CommandResult(
@@ -5757,15 +5768,21 @@ def _create(world: World, arg: str) -> str:
         if not name:
             return fmt.hint(_create_usage())
 
-    if kind not in KINDS:
-        return fmt.err(
-            f"Unknown kind {kind!r}.  Try: kinds  ·  "
-            f"roots: concept person place bin thing folio symbol sense event"
-        )
+    from . import cycle as cycle_mod
+    from . import mentor as mentor_mod
+
+    try:
+        mentor_mod.assert_kind_allowed(world, kind)
+    except ValueError as e:
+        return fmt.err(str(e))
+    # Subtypes only when the kind is a classic adventure root that allows them
     if subtype and kind not in SUBTYPE_KINDS:
-        return fmt.err(
-            f"Subtype not used on {kind!r}  ·  adventure roots take subtypes."
-        )
+        if not cycle_mod.is_mentalor(world):
+            return fmt.err(
+                f"Subtype not used on {kind!r}  ·  adventure roots take subtypes."
+            )
+        # mentalor: free subtype labels on taught types (still concept/* ok)
+        pass
     parent_ven_id = None
     parent_label = None
     if parent_query:

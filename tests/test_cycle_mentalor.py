@@ -26,18 +26,32 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIn("you remember", r.message)
         self.assertIn("CYCʞ-0", r.message)
 
-    def test_only_self_concept_in_ven_table(self) -> None:
+    def test_only_concept_primes_in_ven_table(self) -> None:
         rows = self.world.conn.execute(
             "SELECT name, kind FROM vens ORDER BY name"
         ).fetchall()
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["name"], "SELF")
-        self.assertEqual(rows[0]["kind"], "concept")
-        # no place/realm/timeline instances required
+        self.assertEqual(len(rows), 2)
+        by_name = {r["name"]: r["kind"] for r in rows}
+        self.assertEqual(by_name.get("SELF"), "concept")
+        self.assertEqual(by_name.get("Concept"), "concept")
+        # only SELF is instantiated (player / remember surface)
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
         self.assertEqual(n_inst, 1)
+
+    def test_cannot_create_person_until_taught(self) -> None:
+        from miwbs.format import plain
+
+        r = dispatch(self.world, "create person Bob | a guy")
+        text = plain(r.message).lower()
+        self.assertIn("not taught", text)
+        self.assertIn("person", text)
+        # concept still allowed
+        r2 = dispatch(self.world, "create concept Wonder | a sense of wonder")
+        t2 = plain(r2.message).lower()
+        self.assertNotIn("not taught", t2)
+        self.assertIn("wonder", t2)
 
     def test_node_plus_and_splice_path(self) -> None:
         dispatch(self.world, "node +")

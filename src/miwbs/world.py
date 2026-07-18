@@ -303,7 +303,13 @@ class World:
         if st0:
             meta = dict(meta or {})
             meta["subtype"] = st0
-        if kind not in KINDS:
+        # Mentalor: only mentor-taught types (concept first). Classic: full KINDS.
+        from . import cycle as cycle_mod
+        from . import mentor as mentor_mod
+
+        if cycle_mod.is_mentalor(self):
+            mentor_mod.assert_kind_allowed(self, kind)
+        elif kind not in KINDS:
             raise ValueError(f"Unknown kind {kind!r}; expected one of {KINDS}")
         if parent_ven_id is not None:
             if self.get_ven(parent_ven_id) is None:
