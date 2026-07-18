@@ -878,7 +878,7 @@ def _location_header_line(world: World, inst: InstanceView) -> str:
         Location: Mailroom · app  |  Realm  |  Timeline
         Location: The Void · Realm  |  Timeline
 
-    Mentalor: you remember <title> · CYCʞ-0  (no realm/timeline face)
+    Mentalor: OBSERVING: <title>  CYC ʞ.0  (no realm/timeline face)
     """
     from . import cycle as cycle_mod
 
@@ -1050,7 +1050,7 @@ def _look_mentalor_self(world: World, *, deep: bool = False) -> str:
         return fmt.hint("No thinker yet.")
     plain_name = display_name(self_inst.name)
     header = cycle_mod.remember_header_line(world, plain_name) or (
-        f"[bold]you remember[/bold] {fmt.safe(plain_name)}"
+        f"OBSERVING: [cyan]{fmt.safe(plain_name)}[/cyan]"
     )
     body = fmt.prose(self_inst.description or "")
     lore_rows = world.lore_for("instance", pid)

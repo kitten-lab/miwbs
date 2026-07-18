@@ -27,8 +27,8 @@ You are the **Thinker** in the pressure of something. Time is not realm/timeline
 |------|------|
 | Cycle ʞ | **Day of Days** · Ancient of Days (before numbered days) |
 | Cycle 0, 1, … | Days among days |
-| Node path | Splice chain: `CYC0-1.2`, `CYCʞ-0` — evidence of insert order |
-| remember | Alias of look · header **you remember** *title* · `CYC…` |
+| Node path | Splice chain: `CYC 0.1.2`, `CYC ʞ.0` — kras before day 0 |
+| remember | Alias of look · `OBSERVING:` cyan title · dim `CYC ʞ.0` |
 | @desc <<studio | Sculpt **this node’s** body |
 | node + / next / prev | Stream (folio muscle memory) |
 | consider SELF \| … | Self-dialog; ECHO replies to self; stored as **considerations** |

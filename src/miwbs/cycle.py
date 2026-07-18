@@ -1,8 +1,9 @@
 """
 Mentalor time spine: Cycle + splice-path nodes.
 
-Not multiverse timeline/realm. Face: CYCʞ-0 · CYC0-1.2 · …
-ʞ = Day of Days (Ancient of Days). Item history will hang on this spine later.
+Not multiverse timeline/realm. Face: CYC ʞ.0 · CYC 0.1.2 · …
+ʞ (kras) = Day of Days (Ancient of Days), the cycle before numbered 0.
+Item history will hang on this spine later.
 
 Onion skin is deferred. Studio @desc sculpts the current node body.
 """
@@ -171,10 +172,15 @@ def _day_of_days_cycle() -> Cycle:
 
 
 def face_address(cycle_id: str, path: str) -> str:
-    """Cute short form: CYCʞ-0 · CYC0-1.2"""
-    c = "ʞ" if cycle_id == "ʞ" else str(cycle_id)
+    """
+    Short form with breathing room: ``CYC ʞ.0`` · ``CYC 0.1.2``.
+
+    Kras (ʞ) is the cycle *before* numbered day 0. Space after CYC;
+    cycle and node path joined with ``.`` (node path may itself contain dots).
+    """
+    c = "ʞ" if cycle_id in ("ʞ", "k", "K") else str(cycle_id)
     p = path if path else "0"
-    return f"CYC{c}-{p}"
+    return f"CYC {c}.{p}"
 
 
 def current_face(state: CycleState) -> str:
@@ -373,9 +379,14 @@ def sync_world_to_current(world: World) -> str:
 
 
 def remember_header_line(world: World, place_name: str) -> str | None:
+    """Look lead: OBSERVING: <cyan title>  <dim CYC ʞ.0>"""
     if not is_mentalor(world):
         return None
+    from .format import safe
+
     st = load_state(world)
     face = current_face(st)
     name = (place_name or "").strip() or "something"
-    return f"[bold]you remember[/bold] {name}  [dim]·[/dim]  [cyan]{face}[/cyan]"
+    return (
+        f"OBSERVING: [cyan]{safe(name)}[/cyan]  [dim]{safe(face)}[/dim]"
+    )

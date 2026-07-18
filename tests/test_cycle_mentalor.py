@@ -9,6 +9,7 @@ from pathlib import Path
 from miwbs.cli import ensure_world
 from miwbs.commands import dispatch
 from miwbs import cycle as cycle_mod
+from miwbs.format import plain
 
 
 class MentalorCycleTests(unittest.TestCase):
@@ -21,10 +22,12 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertTrue(cycle_mod.is_mentalor(self.world))
         st = cycle_mod.load_state(self.world)
         self.assertEqual(st.current_cycle, "ʞ")
-        self.assertEqual(cycle_mod.current_face(st), "CYCʞ-0")
+        self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.0")
         r = dispatch(self.world, "remember")
-        self.assertIn("you remember", r.message)
-        self.assertIn("CYCʞ-0", r.message)
+        text = plain(r.message)
+        self.assertIn("OBSERVING:", text)
+        self.assertIn("CYC ʞ.0", text)
+        self.assertNotIn("you remember", text.lower())
 
     def test_self_and_echo_untyped(self) -> None:
         rows = self.world.conn.execute(
@@ -76,7 +79,7 @@ class MentalorCycleTests(unittest.TestCase):
         dispatch(self.world, "node +")
         st = cycle_mod.load_state(self.world)
         self.assertEqual(st.current_path, "1")
-        self.assertEqual(cycle_mod.current_face(st), "CYCʞ-1")
+        self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.1")
         # back to 0, insert between will create under 0
         dispatch(self.world, "node prev")
         dispatch(self.world, "node next")  # on 1
@@ -87,14 +90,16 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIn(st.current_path, st.cycles["ʞ"].order)
 
     def test_node_stream_shorthands(self) -> None:
+        from miwbs.format import plain
+
         r = dispatch(self.world, "n+")
-        self.assertIn("CYCʞ-1", r.message)
+        self.assertIn("CYC ʞ.1", plain(r.message))
         r2 = dispatch(self.world, "n<")
-        self.assertIn("CYCʞ-0", r2.message)
+        self.assertIn("CYC ʞ.0", plain(r2.message))
         r3 = dispatch(self.world, "n>")
-        self.assertIn("CYCʞ-1", r3.message)
+        self.assertIn("CYC ʞ.1", plain(r3.message))
         r4 = dispatch(self.world, "/n+")
-        self.assertIn("CYCʞ-", r4.message)
+        self.assertIn("CYC ʞ.", plain(r4.message))
 
     def test_consider_note_lore(self) -> None:
         from miwbs.format import plain
