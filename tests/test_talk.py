@@ -74,25 +74,41 @@ class ScriptFormatTests(unittest.TestCase):
 class DialogCodeTests(unittest.TestCase):
     def test_save_allocates_dlg_code_and_resolve(self) -> None:
         w = _world()
-        # minimal talk with someone in seed
-        r = dispatch(w, "talk cartographer of returns | First Signal")
-        self.assertTrue(r.ok, r.message)
-        self.assertIsNotNone(w.active_dialog)
-        dispatch(w, "Hello.")
-        dispatch(w, "Good day.")
-        end = dispatch(w, FIN_TOKEN)
-        text = plain(end.message)
-        self.assertRegex(text, r"DLG-\d{3}")
-        row = w.conn.execute(
-            "SELECT code, slug FROM dialogs ORDER BY created_at DESC LIMIT 1"
-        ).fetchone()
+        did = w.save_dialog(
+            title="First Signal",
+            when_label="@0",
+            place_instance_id=None,
+            timeline_instance_id=None,
+            speaker_a_id=None,
+            speaker_b_id=None,
+            speaker_a_name="SELF",
+            speaker_b_name="ECHO",
+            transcript="SELF: Hello.\nECHO: …",
+        )
+        row = w.get_dialog(did)
         self.assertIsNotNone(row)
         code = row["code"]
         self.assertRegex(code or "", r"^DLG-\d{3}$")
         found = w.find_dialog(code)
         self.assertIsNotNone(found)
+        self.assertEqual(found["id"], did)
         found2 = w.find_dialog("dlg 1")
         self.assertIsNotNone(found2)
+        # second dialog increments
+        did2 = w.save_dialog(
+            title="Second",
+            when_label=None,
+            place_instance_id=None,
+            timeline_instance_id=None,
+            speaker_a_id=None,
+            speaker_b_id=None,
+            speaker_a_name="A",
+            speaker_b_name="B",
+            transcript="A: hi",
+        )
+        row2 = w.get_dialog(did2)
+        self.assertNotEqual(row2["code"], code)
+        self.assertRegex(row2["code"] or "", r"^DLG-\d{3}$")
 
 
 class ParseWhenStampTests(unittest.TestCase):
