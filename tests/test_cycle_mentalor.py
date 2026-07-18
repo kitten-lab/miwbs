@@ -26,32 +26,34 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIn("you remember", r.message)
         self.assertIn("CYCʞ-0", r.message)
 
-    def test_only_concept_primes_in_ven_table(self) -> None:
+    def test_only_self_untyped_code_zero(self) -> None:
         rows = self.world.conn.execute(
-            "SELECT name, kind FROM vens ORDER BY name"
+            "SELECT name, kind, code FROM vens"
         ).fetchall()
-        self.assertEqual(len(rows), 2)
-        by_name = {r["name"]: r["kind"] for r in rows}
-        self.assertEqual(by_name.get("SELF"), "concept")
-        self.assertEqual(by_name.get("Concept"), "concept")
-        # only SELF is instantiated (player / remember surface)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "SELF")
+        self.assertEqual((rows[0]["kind"] or "").strip(), "")
+        self.assertEqual(rows[0]["code"], "0")
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
         self.assertEqual(n_inst, 1)
 
-    def test_cannot_create_person_until_taught(self) -> None:
+    def test_zero_point_no_types_until_taught(self) -> None:
+        from miwbs import mentor
         from miwbs.format import plain
 
+        self.assertEqual(mentor.allowed_kinds(self.world), frozenset())
         r = dispatch(self.world, "create person Bob | a guy")
-        text = plain(r.message).lower()
-        self.assertIn("not taught", text)
-        self.assertIn("person", text)
-        # concept still allowed
+        self.assertIn("not taught", plain(r.message).lower())
         r2 = dispatch(self.world, "create concept Wonder | a sense of wonder")
-        t2 = plain(r2.message).lower()
-        self.assertNotIn("not taught", t2)
-        self.assertIn("wonder", t2)
+        self.assertIn("not taught", plain(r2.message).lower())
+        # teach concept, then create works
+        ws = mentor.workshop_for(self.world)
+        ws.mint_type("concept", "the sense of Concept")
+        r3 = dispatch(self.world, "create concept Concept | the concept of Concept")
+        self.assertNotIn("not taught", plain(r3.message).lower())
+        self.assertIn("concept", plain(r3.message).lower())
 
     def test_node_plus_and_splice_path(self) -> None:
         dispatch(self.world, "node +")

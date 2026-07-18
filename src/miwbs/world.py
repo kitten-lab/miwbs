@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from typing import Any
@@ -295,22 +296,27 @@ class World:
         parent_ven_id: str | None = None,
         code: str | None = None,
     ) -> str:
-        # Fold legacy kinds (feeling→sense, book→folio, …) at the waist
+        # Untyped zero-point VEN: no kind/type — code may be "0", "1", …
+        raw_k = (kind if kind is not None else "").strip().lower()
+        untyped = raw_k in ("", "none", "untyped", "-", "ven", "0", "null")
         st0 = None
-        if meta and meta.get("subtype") is not None:
-            st0 = str(meta.get("subtype") or "") or None
-        kind, st0 = normalize_kind(kind, st0)
-        if st0:
-            meta = dict(meta or {})
-            meta["subtype"] = st0
-        # Mentalor: only mentor-taught types (concept first). Classic: full KINDS.
-        from . import cycle as cycle_mod
-        from . import mentor as mentor_mod
+        if not untyped:
+            if meta and meta.get("subtype") is not None:
+                st0 = str(meta.get("subtype") or "") or None
+            kind, st0 = normalize_kind(kind, st0)
+            if st0:
+                meta = dict(meta or {})
+                meta["subtype"] = st0
+            # Mentalor: only mentor-taught types. Classic: full KINDS.
+            from . import cycle as cycle_mod
+            from . import mentor as mentor_mod
 
-        if cycle_mod.is_mentalor(self):
-            mentor_mod.assert_kind_allowed(self, kind)
-        elif kind not in KINDS:
-            raise ValueError(f"Unknown kind {kind!r}; expected one of {KINDS}")
+            if cycle_mod.is_mentalor(self):
+                mentor_mod.assert_kind_allowed(self, kind)
+            elif kind not in KINDS:
+                raise ValueError(f"Unknown kind {kind!r}; expected one of {KINDS}")
+        else:
+            kind = ""  # no type — before concept is taught
         if parent_ven_id is not None:
             if self.get_ven(parent_ven_id) is None:
                 raise ValueError(f"No parent VEN {parent_ven_id}")
@@ -323,9 +329,16 @@ class World:
             final_slug = f"{base}-{n}"
             n += 1
         if code:
-            final_code = parse_ven_code(code) or code.strip().upper()
+            # Allow bare "0" / integer codes for untyped; else ven-code parse
+            c_raw = str(code).strip()
+            if re.fullmatch(r"\d+", c_raw):
+                final_code = c_raw  # keep "0" not zero-padded kind form
+            else:
+                final_code = parse_ven_code(c_raw) or c_raw.upper()
             if self.get_ven_by_code(final_code) is not None:
                 raise ValueError(f"VEN code {final_code} already in use")
+        elif untyped:
+            final_code = self.allocate_untyped_code()
         else:
             final_code = self.allocate_ven_code(kind)
         ven_id = new_id("ven")
@@ -352,6 +365,20 @@ class World:
         )
         self.conn.commit()
         return ven_id
+
+    def allocate_untyped_code(self) -> str:
+        """Next bare integer code for untyped VENs: 0, 1, 2, …"""
+        import re as _re
+
+        rows = self.conn.execute(
+            "SELECT code FROM vens WHERE code IS NOT NULL AND code != ''"
+        ).fetchall()
+        max_n = -1
+        for r in rows:
+            c = (r["code"] or "").strip()
+            if _re.fullmatch(r"\d+", c):
+                max_n = max(max_n, int(c))
+        return str(max_n + 1)
 
     def allocate_ven_code(self, kind: str) -> str:
         """Next compact code for this kind: RLM-001, OBJ-014, …"""

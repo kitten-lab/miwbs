@@ -60,22 +60,24 @@ Onion skin: deferred. Gradient Maker: doctrine only until a play beat demands it
 
 Stored as lore rows; in mentalor voice they print as **considerations**.
 
-## Seed
+## Seed — zero point
 
 `--seed mentalor` (default):
 
-| VEN | Kind | Role |
-|-----|------|------|
-| **Concept** | concept | The concept of Concept (prime only; not instantiated) |
-| **SELF** | concept | The Thinker — player / remember surface |
+| VEN | Kind | Code | Role |
+|-----|------|------|------|
+| **SELF** | *(none)* | **`0`** | The Thinker — untyped zero point |
 
-No person, place, bin, realm, timeline, or other kinds in the DB.  
-Mentor workshop starts with **one taught type: `concept`**. Further types are minted as thinking produces them; `create person` etc. **fails until that type is taught**.
+No Concept prime. No taught types. No person/place/bin/realm/timeline.
 
-Remember surface = SELF instance + Cycle ʞ nodes.
+From here you shape:
 
 ```text
 from miwbs import mentor
 ws = mentor.workshop_for(world)
-ws.mint_type("place", "the sense of location")  # then create place is allowed
+ws.mint_type("concept", "the sense of Concept")   # type emerges
+# then: create concept Concept | the concept of Concept
+# later: mint_type("place", …) → create place …
 ```
+
+Remember surface = SELF instance + Cycle ʞ nodes.

@@ -36,11 +36,11 @@ def seed_world(conn: sqlite3.Connection, flavor: str = "mentalor") -> None:
 
 def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     """
-    Day of Days (Cycle ʞ): only **concept** primes — SELF and Concept.
+    Day of Days (Cycle ʞ): **zero point** — only SELF, untyped, code ``0``.
 
-    No person/place/bin/… and no ambient types beyond the mentor type
-    ``concept``. Further types are taught via the mentor workshop as they
-    emerge from thinking. Remember surface = SELF + Cycle nodes.
+    No kind/type yet. No Concept prime. No taught mentor types.
+    From here you teach type ``concept`` and mint the VEN of Concept yourself
+    as thinking produces them. Remember surface = SELF + Cycle nodes.
     """
     from . import cycle as cycle_mod
     from . import mentor as mentor_mod
@@ -48,18 +48,12 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     init_schema(conn)
     w = World(conn)
 
-    # Root concept of Concept (the type-of-types, as a prime)
-    concept_ven = w.create_ven(
-        "Concept",
-        "concept",
-        "The concept of Concept — that from which types may later be taught.",
-    )
-    _ = concept_ven
-
+    # Untyped zero-point Thinker (before Concept is a type or a prime)
     self_ven = w.create_ven(
         "SELF",
-        "concept",
-        "The Thinker — root of lived concept. Before form, before talk-as-create.",
+        "",  # no type
+        "The Thinker at zero — before type, before Concept, before form.",
+        code="0",
     )
     self_inst = w.instantiate(self_ven)
     w.set_player(self_inst)
@@ -67,15 +61,15 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     w.set_description(self_inst, "")
 
     set_meta(conn, "world_name", "Day of Days")
-    set_meta(conn, "seed_version", "mentalor-ʞ-3")
+    set_meta(conn, "seed_version", "mentalor-ʞ-4")
     cycle_mod.set_mentalor_mode(w, True)
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)
     cycle_mod.apply_node_to_surface(
         w, cycle_mod.ensure_current(st), cycle_mod.current_face(st)
     )
-    # Mentor side channel: only type ``concept`` until thinking teaches more
-    mentor_mod.bootstrap_world_workshop(w, initial_types=("concept",))
+    # Empty mentor workshop — type concept is not pre-taught
+    mentor_mod.bootstrap_world_workshop(w, initial_types=())
 
 
 def seed_world_classic(conn: sqlite3.Connection) -> None:

@@ -99,9 +99,10 @@ def bootstrap_world_workshop(
 
 def allowed_kinds(world: World) -> frozenset[str]:
     """
-    Kinds legal for create in this world.
+    Typed kinds legal for create in this world.
 
-    Mentalor: only mentor-taught types (starts as {concept}).
+    Mentalor: only mentor-taught types (starts **empty** — zero point).
+    Untyped VENs (kind "") are separate (SELF as code 0).
     Classic seeds: full KINDS table.
     """
     from . import cycle as cycle_mod
@@ -110,19 +111,26 @@ def allowed_kinds(world: World) -> frozenset[str]:
     if not cycle_mod.is_mentalor(world):
         return frozenset(KINDS)
     ws = workshop_for(world)
-    taught = frozenset(ws.types.keys())
-    return taught if taught else frozenset({"concept"})
+    return frozenset(ws.types.keys())
 
 
 def assert_kind_allowed(world: World, kind: str) -> None:
     """Raise ValueError if kind is not mentored yet (mentalor) / unknown."""
     k = (kind or "").strip().lower()
+    if k in ("", "none", "untyped", "-", "ven", "0", "null"):
+        return  # untyped zero-point issuance
     allowed = allowed_kinds(world)
     if k not in allowed:
         from . import cycle as cycle_mod
 
         if cycle_mod.is_mentalor(world):
-            shown = ", ".join(sorted(allowed)) or "concept"
+            if not allowed:
+                raise ValueError(
+                    f"type {k!r} is not taught yet. "
+                    f"At zero point no types exist — teach type "
+                    f"(e.g. concept) as thinking produces it."
+                )
+            shown = ", ".join(sorted(allowed))
             raise ValueError(
                 f"type {k!r} is not taught yet. "
                 f"Only mentored types may be formed: {shown}. "
