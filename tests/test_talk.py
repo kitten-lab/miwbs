@@ -94,6 +94,9 @@ class DialogCodeTests(unittest.TestCase):
         self.assertEqual(found["id"], did)
         found2 = w.find_dialog("dlg 1")
         self.assertIsNotNone(found2)
+        # -s show path
+        shown = dispatch(w, f"dialogs -s {code}")
+        self.assertIn("First Signal", plain(shown.message))
         # second dialog increments
         did2 = w.save_dialog(
             title="Second",

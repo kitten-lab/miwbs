@@ -2741,11 +2741,12 @@ def _finish_dialog(world: World) -> str:
 
     # Lore note: dialog took place between the two characters
     lore_title = f"Dialog · {title}"
+    dcode = world.dialog_code_of(row) if row else ""
+    remember = f"dialogs -s {dcode}" if dcode else f"dialogs -s {dslug}"
     lore_body = (
         f"A dialog took place between {sess.player_name} and {sess.partner_name}.\n"
-        f"Transcript id: {did}\n"
-        f"Transcript: {dslug}\n"
-        f"Re-read: dialogs show {dslug}"
+        f"Transcript: {dcode or dslug}\n"
+        f"To Remember: {remember}"
     )
     noted_on: set[str] = set()
     for iid in (sess.place_id, sess.partner_id, sess.player_id):
@@ -2762,11 +2763,9 @@ def _finish_dialog(world: World) -> str:
             author="dialog",
         )
 
-    dcode = world.dialog_code_of(row) if row else ""
-    saved = f"{dcode}  ·  {dslug}" if dcode else dslug
     return fmt.join_blocks(
         fmt.ok(f"Dialog ended · {title}"),
-        fmt.hint(f"saved {saved}"),
+        fmt.hint(f"To Remember: {remember}"),
         gap=0,
     )
 
@@ -2811,61 +2810,91 @@ def _format_dialogs_list(
     return "\n".join(lines)
 
 
+def _dialogs_show_view(world: World, query: str, *, place_id: str | None) -> str:
+    """Re-read one transcript by code / slug / title / ordinal."""
+    q = (query or "").strip()
+    if not q:
+        return fmt.hint("dialogs -s <DLG-001|n|slug|title>")
+    if q.lower() in ("list", "all", "ls", "everywhere", "global"):
+        return _format_dialogs_list(world, world.list_dialogs(), scope="all")
+    row = world.find_dialog(q, place_instance_id=place_id)
+    if row is None:
+        return fmt.err(f"No dialog matching {q!r}.")
+    dcode = world.dialog_code_of(row)
+    dslug = world.dialog_slug_of(row)
+    handle = f"{dcode}  ·  {dslug}" if dcode else dslug
+    return format_transcript_view(
+        title=row["title"] or "Untitled dialog",
+        when_label=row["when_label"],
+        speaker_a=row["speaker_a_name"] or "",
+        speaker_b=row["speaker_b_name"] or "",
+        transcript=row["transcript"] or "",
+        created_at=row["created_at"] or "",
+        dialog_id=row["id"],
+        dialog_slug=handle,
+    )
+
+
 def _dialogs(world: World, arg: str) -> str:
-    """List or show completed dialog transcripts; replace when-stamp."""
+    """List or show completed dialog transcripts; replace when-stamp.
+
+    Show: ``dialogs -s DLG-001`` (preferred) · also ``dialogs show …``
+    """
     arg = arg.strip()
+    place_id = _dialog_place_id(world)
+
+    # Flag form: dialogs -s DLG-001  ·  dialogs --show 1  ·  dialogs -s
+    try:
+        import shlex
+
+        tokens = shlex.split(arg, posix=True) if arg else []
+    except ValueError:
+        tokens = arg.split() if arg else []
+    if tokens:
+        # peel -s / --show / -s=CODE
+        show_q: str | None = None
+        i = 0
+        while i < len(tokens):
+            t = tokens[i]
+            tl = t.lower()
+            if tl in ("-s", "--show", "-show"):
+                if i + 1 < len(tokens):
+                    show_q = " ".join(tokens[i + 1 :])
+                else:
+                    show_q = ""
+                return _dialogs_show_view(world, show_q or "", place_id=place_id)
+            if tl.startswith("-s=") or tl.startswith("--show="):
+                show_q = t.split("=", 1)[1].strip()
+                return _dialogs_show_view(world, show_q, place_id=place_id)
+            i += 1
+
     sub, _, rest = arg.partition(" ")
     sub = sub.lower()
     rest = rest.strip()
-    place_id = _dialog_place_id(world)
 
     # Bare dialogs → this location only
     if not arg or sub in ("here", "local"):
         rows = world.list_dialogs(place_instance_id=place_id) if place_id else []
         if not place_id:
-            return fmt.hint("Nowhere.  dialogs all  lists every transcript.")
+            # Mentalor: no place — list all (consider dialogs live on SELF surface)
+            from . import cycle as cycle_mod
+
+            if cycle_mod.is_mentalor(world):
+                return _format_dialogs_list(
+                    world, world.list_dialogs(), scope="all"
+                )
+            return fmt.hint("Nowhere.")
         return _format_dialogs_list(world, rows, scope="here")
 
-    # Global list: dialogs all | list | ls | show list
+    # Global list: dialogs all | list | ls
     if sub in ("all", "list", "ls", "everywhere", "global"):
         return _format_dialogs_list(
             world, world.list_dialogs(), scope="all"
         )
-    if sub in ("show", "read", "open", "view") and rest.lower() in (
-        "list",
-        "all",
-        "ls",
-        "everywhere",
-        "global",
-    ):
-        return _format_dialogs_list(
-            world, world.list_dialogs(), scope="all"
-        )
 
+    # Legacy word form still works
     if sub in ("show", "read", "open", "view"):
-        if not rest:
-            return fmt.hint(
-                "Usage: dialogs show <number|slug|title>  ·  "
-                "dialogs show list  (all places)"
-            )
-        row = world.find_dialog(rest, place_instance_id=place_id)
-        if row is None:
-            return fmt.err(
-                f"No dialog matching {rest!r}.  Try: dialogs  ·  dialogs all"
-            )
-        dcode = world.dialog_code_of(row)
-        dslug = world.dialog_slug_of(row)
-        handle = f"{dcode}  ·  {dslug}" if dcode else dslug
-        return format_transcript_view(
-            title=row["title"] or "Untitled dialog",
-            when_label=row["when_label"],
-            speaker_a=row["speaker_a_name"] or "",
-            speaker_b=row["speaker_b_name"] or "",
-            transcript=row["transcript"] or "",
-            created_at=row["created_at"] or "",
-            dialog_id=row["id"],
-            dialog_slug=handle,
-        )
+        return _dialogs_show_view(world, rest, place_id=place_id)
 
     if sub in ("when", "stamp"):
         return _dialogs_set_when(world, rest)
@@ -2873,14 +2902,13 @@ def _dialogs(world: World, arg: str) -> str:
     if sub in ("rename", "title", "call"):
         return _dialogs_rename(world, rest)
 
-    # bare number or slug as shortcut: dialogs 1 / dialogs FIRST-MEETING
+    # bare code/number/slug: dialogs DLG-001 / dialogs 1
     row = world.find_dialog(arg, place_instance_id=place_id)
     if row is not None:
-        return _dialogs(world, f"show {arg}")
+        return _dialogs_show_view(world, arg, place_id=place_id)
 
     return fmt.hint(
-        "Usage: dialogs  (this place)  ·  dialogs all  ·  "
-        "dialogs show list  ·  dialogs show <n|slug|title>  ·  "
+        "dialogs  ·  dialogs all  ·  dialogs -s DLG-001  ·  "
         "dialogs rename …  ·  dialogs when …"
     )
 
@@ -2969,7 +2997,9 @@ def _dialogs_rename(world: World, rest: str) -> str:
         fmt.ok(
             f"Renamed dialog · {prior or 'Untitled'} → {updated['title']}"
         ),
-        fmt.hint(f"{dslug}  ·  dialogs show {dslug}"),
+        fmt.hint(
+            f"To Remember: dialogs -s {world.dialog_code_of(updated) or dslug}"
+        ),
         gap=0,
     )
 
@@ -3890,7 +3920,7 @@ def _format_dialog_lore_entry(row) -> str:
     """
     Compact, dim dialog-pointer row for lore lists.
 
-    Full transcript lives under dialogs show — avoid dumping meta as loud prose.
+    Full transcript: dialogs -s DLG-001 — avoid dumping meta as loud prose.
     """
     title = row["title"] or "Dialog"
     body = (row["body"] or "").strip()
@@ -3901,25 +3931,31 @@ def _format_dialog_lore_entry(row) -> str:
         low = s.lower()
         if low.startswith("a dialog took place between "):
             who = s[len("A dialog took place between ") :].rstrip(".")
+        elif low.startswith("to remember:"):
+            rest = s.split(":", 1)[1].strip()
+            # "dialogs -s DLG-001"
+            if "dialogs" in rest.lower():
+                handle = rest
         elif low.startswith("transcript:") and not low.startswith("transcript id:"):
-            # Cute slug line (preferred for typing)
             handle = s.split(":", 1)[1].strip()
         elif low.startswith("re-read:"):
             rest = s.split(":", 1)[1].strip()
-            if "dialogs show" in rest.lower():
+            if "dialogs" in rest.lower():
                 bits = rest.split()
                 if bits:
-                    handle = bits[-1]
+                    handle = " ".join(bits) if "-s" in rest else bits[-1]
         elif low.startswith("transcript id:") and not handle:
-            # Legacy fallback (opaque dlg_… id)
             handle = s.split(":", 1)[1].strip()
     bits: list[str] = []
     if who:
         bits.append(who)
     if handle:
-        bits.append(f"dialogs show {handle}")
+        if handle.lower().startswith("dialogs"):
+            bits.append(handle)
+        else:
+            bits.append(f"dialogs -s {handle}")
     else:
-        bits.append("dialogs show …")
+        bits.append("dialogs -s DLG-…")
     detail = "  ·  ".join(bits)
     return (
         f"[bold]{fmt.safe(title)}[/bold]  "
