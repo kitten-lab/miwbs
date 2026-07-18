@@ -916,11 +916,7 @@ def _look(world: World, arg: str = "") -> str:
             )
         else:
             lore_block = fmt.hint(f"No {lore_word} for this place.")
-    elif lore_rows:
-        n = len(lore_rows)
-        lore_block = fmt.hint(
-            f"{n} {lore_word} — type lore  ·  look --deep"
-        )
+    # shallow: no coach lines for lore count
 
     # Mentalor empty: quiet paths noise
     if cycle_mod.is_mentalor(world) and not exits:
@@ -962,10 +958,6 @@ def _look_mentalor_self(world: World, *, deep: bool = False) -> str:
             )
         else:
             lore_block = fmt.hint("No considerations yet.")
-    elif lore_rows:
-        lore_block = fmt.hint(
-            f"{len(lore_rows)} considerations — type consider  ·  look --deep"
-        )
     return fmt.join_blocks(header, body, lore_block, gap=1)
 
 
@@ -1908,15 +1900,9 @@ def _inv(world: World, arg: str = "") -> str:
         blocks = _format_look_presence_blocks(
             sections, world=world, deep=deep
         )
-        tip = (
-            "examine <box>  ·  take <thing> from <box>  ·  put <thing> in <box>"
-        )
-        if not deep:
-            tip += "  ·  inv --deep"
         return fmt.join_blocks(
             fmt.section("Inventory"),
             *blocks,
-            fmt.hint(tip),
             gap=1,
         )
 
@@ -1926,10 +1912,7 @@ def _inv(world: World, arg: str = "") -> str:
         world=world,
         deep=deep,
     )
-    tip = "take / drop  ·  put in a bin to group"
-    if not deep and any(_is_placement_bin(it) for it in items):
-        tip += "  ·  inv --deep"
-    return fmt.join_blocks(*blocks, fmt.hint(tip), gap=1)
+    return fmt.join_blocks(*blocks, gap=1)
 
 
 def _record_move_history(
@@ -2310,7 +2293,6 @@ def _examine(world: World, arg: str, *, deep: bool | None = None) -> str:
         # Status color tags must not pass through fmt.hint (which escapes markup)
         book_meta = (
             f"[dim]{n} leaf/page(s)  ·  [/dim]{format_status_markup(status)}"
-            f"[dim]  ·  folio open {fmt.safe(thing.name)}#{fmt.safe(ref)}[/dim]"
         )
 
     # Placement: Here = loose inside this instance; each nested bin is
@@ -2320,31 +2302,17 @@ def _examine(world: World, arg: str, *, deep: bool | None = None) -> str:
     placement_blocks = _format_look_presence_blocks(
         placement, world=world, deep=deep
     )
-    run_hint_line = None
-    if _placement_has_runnable(world, placement, deep=deep):
-        run_hint_line = fmt.hint(
-            f"run <app> from {thing.name}  ·  portals stay off paths"
-        )
 
     portal_meta = None
     portal_dest_id = world.get_portal_to(thing.id)
     if portal_dest_id:
         pdest = world.get_instance(portal_dest_id)
         pname = pdest.name if pdest else "?"
-        holder = world.install_container_of(thing.id)
         locked = world.is_portal_locked(thing.id)
-        lock_bit = "locked · " if locked else ""
-        if locked:
-            run_hint = f"unlock {thing.name} [with <key>] · then open"
-        elif holder:
-            run_hint = f"run {thing.name} from {holder.name}"
-        elif _portal_floor_ready(world, thing):
-            run_hint = f"open / enter {thing.name}"
-        elif _is_floor_portal_token(thing):
-            run_hint = "drop here to open, or install then run"
-        else:
-            run_hint = "install in a box/device, then run"
-        portal_meta = fmt.hint(f"portal → {pname}  ·  {lock_bit}{run_hint}")
+        lock_bit = "locked" if locked else ""
+        portal_meta = fmt.hint(
+            f"portal → {pname}" + (f"  ·  {lock_bit}" if lock_bit else "")
+        )
     lineage_block = _format_lineage_section(world, thing.ven_id)
     compose_block = _format_compose_section(world, thing.ven_id, deep=deep)
 
@@ -2362,20 +2330,8 @@ def _examine(world: World, arg: str, *, deep: bool | None = None) -> str:
     lore_rows = list(world.lore_for("instance", thing.id))
     lore_rows += list(world.lore_for("ven", thing.ven_id))
     lore_block = None
-    if deep:
-        if lore_rows:
-            lore_block = _format_lore_rows(f"Lore · {thing.name}", lore_rows)
-        else:
-            lore_block = fmt.hint("No related lore revisions.")
-    elif lore_rows:
-        lore_block = fmt.hint(
-            f"{len(lore_rows)} related lore revision(s)  ·  examine --deep {thing.name}"
-        )
-
-    # Technical ids last — not between context and prose
-    id_footer = fmt.hint(
-        f"#{ref}  ·  instance {thing.id}  ·  ven {thing.ven_slug} ({thing.ven_id})"
-    )
+    if deep and lore_rows:
+        lore_block = _format_lore_rows(f"Lore · {thing.name}", lore_rows)
 
     return fmt.join_blocks(
         head,
@@ -2385,10 +2341,8 @@ def _examine(world: World, arg: str, *, deep: bool | None = None) -> str:
         lineage_block,
         compose_block,
         *placement_blocks,
-        run_hint_line,
         dialog_meta,
         lore_block,
-        id_footer,
         gap=1,
     )
 
@@ -4537,7 +4491,6 @@ def _dig(world: World, arg: str) -> str:
             return fmt.join_blocks(
                 fmt.ok(f"Dug · {display}  ·  here"),
                 fmt.hint(f"{kind_bit}  ·  #{ref}  ·  instance {inst_id}"),
-                fmt.hint("take / put / examine  ·  undo to remove"),
                 gap=0,
             )
 
@@ -6121,7 +6074,6 @@ def _instances(world: World, arg: str) -> str:
         fmt.hint(f"{kind_lbl}  ·  {code_bit}  ·  {len(insts)} instance(s)"),
     ]
     if not insts:
-        lines.append(fmt.hint(f"None yet.  spawn {ven.slug} as <title>"))
         return fmt.join_blocks(*lines, gap=0)
     for inst in insts:
         ref = world.short_ref_of(inst.id)
@@ -6132,17 +6084,6 @@ def _instances(world: World, arg: str) -> str:
                 kind=inst.ven_kind,
             )
         )
-    # Targeting: compact code once + where/slug — not legacy book open
-    sample_ref = world.short_ref_of(insts[0].id)
-    if _is_folio_kind(ven.kind):
-        verb = "folio open"
-    else:
-        verb = "examine"
-    lines.append(
-        fmt.hint(
-            f"Target: #{sample_ref}  ·  {ven.slug} here|inv  ·  e.g. {verb} {ven.slug}"
-        )
-    )
     return "\n".join(lines)
 
 
@@ -6551,8 +6492,7 @@ def _vens_types(world: World) -> str:
     if not tallies:
         return fmt.join_blocks(
             fmt.section("VEN types"),
-            fmt.hint("No primes yet.  create <kind[/subtype]> <name>"),
-            fmt.hint("Engine roots: " + ", ".join(KINDS)),
+            fmt.hint("No primes yet."),
             gap=0,
         )
 
@@ -6603,19 +6543,6 @@ def _vens_types(world: World) -> str:
             f"[dim]{fmt.safe(fmt.pad_visible(ni, w_i))}[/dim]"
         )
 
-    # Unused engine roots (optional scan aid)
-    used_kinds = {k for (k, _) in tallies}
-    unused = [k for k in KINDS if k not in used_kinds]
-    lines.append("")
-    if unused:
-        lines.append(
-            fmt.hint("Unused roots: " + ", ".join(unused))
-        )
-    lines.append(
-        fmt.hint(
-            "create <kind/sub> <name>  ·  vens <kind>  ·  vens  ·  help kinds"
-        )
-    )
     return "\n".join(lines)
 
 
@@ -6732,13 +6659,6 @@ def _list_vens(world: World, arg: str) -> str:
             f"[dim]{fmt.safe(fmt.pad_visible(of_bit, w_of))}[/dim]{gap}"
             f"[dim]{fmt.safe(fmt.pad_visible(slug, w_slug))}[/dim]"
         )
-    lines.append("")
-    lines.append(
-        fmt.hint(
-            "instances <code|slug>  ·  spawn <code|slug> as <title>  ·  "
-            "vens types  ·  vens tree  ·  vens export  ·  vens load  ·  vens <kind>"
-        )
-    )
     return "\n".join(lines)
 
 
@@ -6930,8 +6850,6 @@ def _vens_export(world: World, query: str) -> str:
     return fmt.join_blocks(
         fmt.ok(f"Exported prime · {display_name(ven.name)}  ({code})"),
         fmt.hint(f"→ {path}"),
-        fmt.hint(f"Collector  ·  {ven_collector_dir()}"),
-        fmt.hint("Load in any world:  vens load  ·  ven load <file>"),
         gap=0,
     )
 
@@ -7117,7 +7035,6 @@ def _vens_tree(world: World, root_query: str) -> str:
     for r in roots:
         # Skip pure leaves when showing all roots? Include all for clarity.
         walk(r, 0, set())
-    lines.append(fmt.hint("create … of <parent>  ·  elevate <thing> as <name>  ·  lineage <ven>"))
     return "\n".join(lines)
 
 
@@ -7407,11 +7324,6 @@ def _layer_list(world: World, kind: str) -> str:
             f"[dim]{fmt.safe(fmt.pad_visible(iid, w_id))}[/dim]{gap}"
             f"[dim]{fmt.safe(places)}[/dim]"
         )
-    # Blank line before helper
-    lines.append("")
-    lines.append(
-        fmt.hint(f"{kind} set <name>  ·  {kind} create <name>  ·  {kind} places <name>")
-    )
     return "\n".join(lines)
 
 
@@ -7495,12 +7407,6 @@ def _layer_places(world: World, kind: str, name: str) -> str:
             f"[dim]{fmt.safe(fmt.pad_visible(rname, w_realm))}[/dim]{gap}"
             f"[dim]{fmt.safe(fmt.pad_visible(tname, w_tl))}[/dim]"
         )
-    lines.append("")
-    lines.append(
-        fmt.hint(
-            f"{kind} set <name>  ·  {kind} places <name>  ·  look  ·  go …"
-        )
-    )
     return "\n".join(lines)
 
 

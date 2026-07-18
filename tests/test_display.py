@@ -178,7 +178,7 @@ class LookDisplaySmokeTests(unittest.TestCase):
         inv_r = dispatch(world, "inv")
         inv = plain(inv_r.message)
         self.assertIn("Silver Thread", inv)
-        self.assertIn("thing", inv)
+        self.assertRegex(inv, r"THG-\d{3}-\d{4}")
         mat = kind_color("thing")
         self.assertIn(f"[{mat}]Silver Thread[/{mat}]", inv_r.message)
 

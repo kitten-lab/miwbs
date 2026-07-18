@@ -87,8 +87,8 @@ class VenCodeWorldTests(unittest.TestCase):
             text, r"CODE\s+NAME\s+KIND\s+SUB\s+INST\s+OF\s+SLUG\n\s+-+"
         )
         self.assertRegex(text, r"RLM-\d{3}")
-        # blank before helper
-        self.assertRegex(text, r"\n\ninstances ")
+        # no coach footer under the table
+        self.assertNotIn("instances ", text.split("SLUG")[-1].lower() if "SLUG" in text else text)
 
     def test_vens_types_census(self) -> None:
         """vens types shows kind/sub only — no prime names."""

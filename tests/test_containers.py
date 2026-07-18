@@ -85,7 +85,6 @@ class NestedContainerTests(unittest.TestCase):
         pack_at = inv.lower().find("travel pack")
         silver_at = inv.lower().find("silver")
         self.assertGreater(silver_at, pack_at, msg=inv)
-        self.assertIn("inv --deep", inv.lower())
 
     def test_inv_deep_opens_nested_bin(self) -> None:
         """inv --deep lists contents of bins nested inside carried bins."""
