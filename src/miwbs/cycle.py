@@ -1,8 +1,8 @@
 """
 Mentalor time spine: Cycle + splice-path nodes.
 
-Not multiverse timeline/realm. Face: CYC ʞ.0 · CYC 0.1.2 · …
-ʞ (kras) = Day of Days (Ancient of Days), the cycle before numbered 0.
+Not multiverse timeline/realm. Face: CYC ʞ.ʞ · CYC ʞ.1 · CYC 0.ʞ · …
+ʞ (kras) = before numbered 0 — both the first cycle and the first node point.
 Item history will hang on this spine later.
 
 Onion skin is deferred. Studio @desc sculpts the current node body.
@@ -171,15 +171,40 @@ def _day_of_days_cycle() -> Cycle:
     )
 
 
+def _display_cycle_id(cycle_id: str) -> str:
+    """Kras (ʞ) for the cycle before numbered day 0."""
+    if cycle_id in ("ʞ", "k", "K"):
+        return "ʞ"
+    return str(cycle_id)
+
+
+def _display_node_path(path: str) -> str:
+    """
+    Node path for the face: first point is kras, not 0.
+
+    Internal storage still uses 0, 1, 2… and 0.x splices.
+    Display maps segment ``0`` → ``ʞ`` so start is nothing-before-zero.
+    """
+    raw = path if path else "0"
+    parts = raw.split(".")
+    out: list[str] = []
+    for seg in parts:
+        if seg in ("0", "ʞ", "k", "K"):
+            out.append("ʞ")
+        else:
+            out.append(seg)
+    return ".".join(out)
+
+
 def face_address(cycle_id: str, path: str) -> str:
     """
-    Short form with breathing room: ``CYC ʞ.0`` · ``CYC 0.1.2``.
+    Short form: ``CYC ʞ.ʞ`` · ``CYC ʞ.1`` · ``CYC 0.ʞ``.
 
-    Kras (ʞ) is the cycle *before* numbered day 0. Space after CYC;
-    cycle and node path joined with ``.`` (node path may itself contain dots).
+    Kras marks *before* 0 on both cycle and first node point.
+    Space after CYC; cycle and path joined with ``.``.
     """
-    c = "ʞ" if cycle_id in ("ʞ", "k", "K") else str(cycle_id)
-    p = path if path else "0"
+    c = _display_cycle_id(cycle_id)
+    p = _display_node_path(path if path else "0")
     return f"CYC {c}.{p}"
 
 
@@ -379,7 +404,7 @@ def sync_world_to_current(world: World) -> str:
 
 
 def remember_header_line(world: World, place_name: str) -> str | None:
-    """Look lead: OBSERVING: <cyan title>  <dim CYC ʞ.0>"""
+    """Look lead: OBSERVING: <cyan title>  <dim CYC ʞ.ʞ>"""
     if not is_mentalor(world):
         return None
     from .format import safe

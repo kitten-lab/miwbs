@@ -878,7 +878,7 @@ def _location_header_line(world: World, inst: InstanceView) -> str:
         Location: Mailroom · app  |  Realm  |  Timeline
         Location: The Void · Realm  |  Timeline
 
-    Mentalor: OBSERVING: <title>  CYC ʞ.0  (no realm/timeline face)
+    Mentalor: OBSERVING: <title>  CYC ʞ.ʞ  (no realm/timeline face)
     """
     from . import cycle as cycle_mod
 

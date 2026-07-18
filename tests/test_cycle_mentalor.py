@@ -22,11 +22,11 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertTrue(cycle_mod.is_mentalor(self.world))
         st = cycle_mod.load_state(self.world)
         self.assertEqual(st.current_cycle, "ʞ")
-        self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.0")
+        self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.ʞ")
         r = dispatch(self.world, "remember")
         text = plain(r.message)
         self.assertIn("OBSERVING:", text)
-        self.assertIn("CYC ʞ.0", text)
+        self.assertIn("CYC ʞ.ʞ", text)
         self.assertNotIn("you remember", text.lower())
 
     def test_self_and_echo_untyped(self) -> None:
@@ -80,7 +80,7 @@ class MentalorCycleTests(unittest.TestCase):
         st = cycle_mod.load_state(self.world)
         self.assertEqual(st.current_path, "1")
         self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.1")
-        # back to 0, insert between will create under 0
+        # back to kras point, insert between will create under 0
         dispatch(self.world, "node prev")
         dispatch(self.world, "node next")  # on 1
         # order 0,1 — go to 1 then insert uses left=0
@@ -88,6 +88,11 @@ class MentalorCycleTests(unittest.TestCase):
         st = cycle_mod.load_state(self.world)
         self.assertTrue(st.current_path.startswith("0."))
         self.assertIn(st.current_path, st.cycles["ʞ"].order)
+        # first splice under kras point displays as ʞ.…
+        self.assertTrue(
+            cycle_mod.current_face(st).startswith("CYC ʞ.ʞ.")
+            or cycle_mod.current_face(st).startswith("CYC ʞ.ʞ")
+        )
 
     def test_node_stream_shorthands(self) -> None:
         from miwbs.format import plain
@@ -95,7 +100,7 @@ class MentalorCycleTests(unittest.TestCase):
         r = dispatch(self.world, "n+")
         self.assertIn("CYC ʞ.1", plain(r.message))
         r2 = dispatch(self.world, "n<")
-        self.assertIn("CYC ʞ.0", plain(r2.message))
+        self.assertIn("CYC ʞ.ʞ", plain(r2.message))
         r3 = dispatch(self.world, "n>")
         self.assertIn("CYC ʞ.1", plain(r3.message))
         r4 = dispatch(self.world, "/n+")
