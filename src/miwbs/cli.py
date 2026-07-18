@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-from . import PRODUCT_NAME, format as fmt
+from . import PRODUCT_LONG, PRODUCT_NAME, format as fmt
 from .commands import dispatch
 from .db import connect, get_meta, init_schema, migrate_schema
 from .help_ui import HelpPane
@@ -611,10 +611,10 @@ def run_textual(world: World, world_path: Path) -> None:
         #header-left {{
             width: 1fr;
             content-align: left middle;
-            color: #888890;
+            color: #c8c8d0;
         }}
         #header-center {{
-            width: 2fr;
+            width: 3fr;
             content-align: center middle;
             text-style: bold;
             color: #e8e8ec;
@@ -665,50 +665,53 @@ def run_textual(world: World, world_path: Path) -> None:
                     with VerticalScroll(id="help-pane-scroll"):
                         yield Static(id="help-pane-body", markup=True)
             yield HistoryInput(
-                placeholder="look  ·  book open  ·  help / ?  ·  ↑↓ history",
+                placeholder="",
                 id="cmd",
             )
             yield Footer()
 
         def on_mount(self) -> None:
-            # OS window title stays product + file
-            file_label = _world_chrome_label(world_path)
-            self.title = f"{PRODUCT_NAME} | {file_label}"
+            # OS window title — product only (no db filename in chrome)
+            self.title = PRODUCT_LONG
             self.sub_title = ""
             self._refresh_studio_header()
             self._refresh_help_pane()
             # Same as clear: empty log — no tips banner, no auto-look
             log = self.query_one("#log", RichLog)
             self._clear_world_log(log)
+            # Prime RichLog so the first real write paints (Textual quirk)
+            log.write("")
             self.query_one("#cmd", HistoryInput).focus()
 
         def _refresh_studio_header(self) -> None:
             """
             Persistent top bar:
-              left   Starting Seed
-              center MIWBS | {world file}
-              right  current location
+              left   seed name only (e.g. Day of Days)
+              center full product name
+              right  @ cycle face (mentalor) or place (classic)
             """
+            from . import cycle as cycle_mod
             from .ids import display_name
 
             wname = (
                 get_meta(world.conn, "world_name", world_path.name) or world_path.name
             )
-            file_label = _world_chrome_label(world_path)
             seed = _seed_label(str(wname), world_path)
-            loc = world.player_location()
-            loc_name = display_name(loc.name) if loc else "—"
 
             left = self.query_one("#header-left", Static)
             center = self.query_one("#header-center", Static)
             right = self.query_one("#header-right", Static)
-            left.update(
-                f"[dim]Starting Seed[/dim]  {fmt.safe(seed)}"
-            )
-            center.update(
-                f"[bold]{PRODUCT_NAME}[/bold]  [dim]|[/dim]  {fmt.safe(file_label)}"
-            )
-            right.update(f"[dim]@[/dim] {fmt.safe(loc_name)}")
+            left.update(fmt.safe(seed))
+            center.update(f"[bold]{PRODUCT_LONG}[/bold]")
+
+            if cycle_mod.is_mentalor(world):
+                st = cycle_mod.load_state(world)
+                face = cycle_mod.current_face(st)
+                right.update(f"[dim]@[/dim] {fmt.safe(face)}")
+            else:
+                loc = world.player_location()
+                loc_name = display_name(loc.name) if loc else "—"
+                right.update(f"[dim]@[/dim] {fmt.safe(loc_name)}")
 
         def _close_help_only(self) -> None:
             if self.help_pane.open:
