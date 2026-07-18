@@ -6082,18 +6082,29 @@ def _resolve_rename_target(
 
     Places are not in room/inventory candidates (you stand *in* them), so
     rename needs special targets: here / place / room, or place-by-name.
+
+    Day of Days: here/place/this → remember surface (SELF), not player_location.
     """
     key = match.strip()
     if not key:
-        return None, fmt.hint("Usage: rename <thing|here|place name> as <new title>")
+        return None, fmt.hint("Usage: rename <thing|here|me> as <new title>")
     low = key.lower()
-    if low in ("here", "place", "room", "this", "location"):
-        loc = world.player_location()
-        if not loc:
+    if low in (
+        "here",
+        "place",
+        "room",
+        "this",
+        "location",
+        "memory",
+        "surface",
+        "position",
+    ):
+        surf = _remember_surface_inst(world)
+        if not surf:
             return None, fmt.hint("Nowhere.")
-        return loc, None
-    # Player avatar (excluded from normal here-candidates)
-    if low in ("me", "self", "player", "you", "builder"):
+        return surf, None
+    # Player avatar / SELF (excluded from normal here-candidates)
+    if low in ("me", "self", "player", "you", "builder", "thinker"):
         pid = world.player_id()
         if not pid:
             return None, fmt.hint("No player avatar set.")
@@ -6101,6 +6112,12 @@ def _resolve_rename_target(
         if me is None:
             return None, fmt.hint("No player avatar.")
         return me, None
+    # ECHO (untyped partner — not in room inventory)
+    if low in ("echo",):
+        echo = _echo_instance(world)
+        if echo is None:
+            return None, fmt.err("ECHO is not here.")
+        return echo, None
 
     # Reachable objects / people / books first
     here_matches = world.resolve_here_matches(key)
@@ -6109,6 +6126,11 @@ def _resolve_rename_target(
     if len(here_matches) > 1:
         return None, _format_ambiguous(world, key, here_matches)
 
+    # Current remember-surface name (e.g. "the pressure of something")
+    surf = _remember_surface_inst(world)
+    if surf is not None and names_match(key, surf.name):
+        return surf, None
+
     # Any place instance (current room or elsewhere)
     places = world.find_instances_by_name(key, kind="place")
     if len(places) == 1:
@@ -6116,10 +6138,14 @@ def _resolve_rename_target(
     if len(places) > 1:
         return None, _format_ambiguous(world, key, places)
 
-    return None, fmt.err(
-        f"No {key!r} here, in inventory, or as a place.\n"
-        + fmt.hint("rename here as …  ·  rename <place name> as …  ·  rename <thing> as …")
-    )
+    # Any unique instance by name (incl. floating SELF/ECHO in mentalor)
+    any_inst = world.find_instances_by_name(key)
+    if len(any_inst) == 1:
+        return any_inst[0], None
+    if len(any_inst) > 1:
+        return None, _format_ambiguous(world, key, any_inst)
+
+    return None, fmt.err(f"No {key!r} to rename.")
 
 
 def _rename(world: World, arg: str) -> str:
