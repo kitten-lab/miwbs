@@ -348,30 +348,75 @@ def _node_cmd(world: World, arg: str) -> str:
     )
 
 
+def _echo_instance(world: World):
+    """ECHO is untyped VEN code 1 — dialog partner, not a person kind."""
+    from .db import get_meta
+
+    eid = get_meta(world.conn, "echo_instance_id", "") or ""
+    if eid:
+        inst = world.get_instance(eid)
+        if inst is not None:
+            return inst
+    ven = world.get_ven_by_code("1") or world.find_ven("ECHO")
+    if ven is None:
+        return None
+    insts = world.list_instances_of_ven(ven.id)
+    return insts[0] if insts else None
+
+
 def _consider(world: World, arg: str) -> str:
     """
-    Self-dialog residue (SELF / ECHO) stored as lore; print as considerations.
-
-    consider SELF | body
-    consider ECHO | body
-    consider | body          → SELF
-    consider                 → list considerations here
+    consider              — start SELF ↔ ECHO dialog (talk-style; /fin ends)
+    consider | <title>    — same, with title
+    consider note | body  — feed a lore consideration (no dialog)
+    consider note SELF|ECHO | body
     """
+    from . import cycle as cycle_mod
+
+    if world.active_dialog is not None:
+        return fmt.hint("Already in a dialog — finish with /fin first.")
+
+    raw = (arg or "").strip()
+    low = raw.lower()
+
+    # Lore feed (old consider) — explicit note path
+    if low == "note" or low.startswith("note ") or low.startswith("note|"):
+        rest = raw[4:].lstrip(" |") if low.startswith("note") else ""
+        return _consider_note(world, rest)
+
+    # Dialog with ECHO (primary) — optional title / when stamp
+    title = ""
+    when_label: str | None = None
+    if raw:
+        try:
+            if "|" in raw or raw.lower().startswith("when ") or raw.startswith("@"):
+                body = raw.lstrip("|").strip()
+                _, title, when_label = parse_talk_args(f"_ | {body}")
+            else:
+                title = raw
+        except ValueError as e:
+            return fmt.hint(str(e))
+
+    if cycle_mod.is_mentalor(world) and when_label is None:
+        st = cycle_mod.load_state(world)
+        when_label = cycle_mod.current_face(st)
+
+    return _start_echo_dialog(world, title=title, when_label=when_label)
+
+
+def _consider_note(world: World, arg: str) -> str:
+    """One-shot lore consideration (SELF/ECHO titled note) — not a live dialog."""
     from . import cycle as cycle_mod
 
     sid = cycle_mod.remember_surface_id(world)
     if not sid:
         return fmt.hint("Nowhere to leave a consideration.")
-    surf = world.get_instance(sid)
-    if surf is None:
-        return fmt.hint("Nowhere to leave a consideration.")
     raw = (arg or "").strip()
     if not raw:
         rows = world.lore_for("instance", sid)
         if not rows:
-            return fmt.hint("No considerations here yet.  consider SELF | …")
-        word = "considerations" if cycle_mod.is_mentalor(world) else "lore"
-        return _format_lore_rows(f"{word.capitalize()} · {surf.name}", rows)
+            return fmt.hint("No notes yet.")
+        return _format_lore_rows("Considerations", rows)
 
     speaker = "SELF"
     body = raw
@@ -380,17 +425,14 @@ def _consider(world: World, arg: str) -> str:
         left, right = left.strip(), right.strip()
         if left.upper() in ("SELF", "ECHO", "ME", "I"):
             speaker = "ECHO" if left.upper() == "ECHO" else "SELF"
-            if left.upper() in ("ME", "I"):
-                speaker = "SELF"
             body = right
-        elif not left:
-            body = right
-        else:
-            # title | body with free title — still a consideration
+        elif left:
             speaker = left
             body = right
+        else:
+            body = right
     if not body:
-        return fmt.hint("Usage: consider SELF | …   ·  consider ECHO | …")
+        return fmt.hint("consider note SELF | …  ·  consider note ECHO | …")
 
     when_label = None
     if cycle_mod.is_mentalor(world):
@@ -406,8 +448,53 @@ def _consider(world: World, arg: str) -> str:
         author="thinker",
     )
     return fmt.ok(
-        f"consideration · {speaker}  ·  {lid}"
+        f"note · {speaker}  ·  {lid}"
         + (f"  ·  {when_label}" if when_label else "")
+    )
+
+
+def _start_echo_dialog(
+    world: World,
+    *,
+    title: str = "",
+    when_label: str | None = None,
+) -> str:
+    """C.S. Lewis–style dialog builder between SELF and ECHO."""
+    from . import cycle as cycle_mod
+
+    echo = _echo_instance(world)
+    if echo is None:
+        return fmt.err(
+            "ECHO is not here (untyped code 1).  Reseed mentalor, or mint ECHO."
+        )
+    pid = world.player_id()
+    if not pid:
+        return fmt.hint("No thinker (SELF) set.")
+    player = world.get_instance(pid)
+    if player is None:
+        return fmt.hint("No thinker (SELF) set.")
+
+    place_id = cycle_mod.remember_surface_id(world)
+    session = DialogSession(
+        partner_id=echo.id,
+        partner_name="ECHO",
+        player_id=pid,
+        player_name="SELF",
+        place_id=place_id,
+        timeline_id=None,
+        title=title or "",
+        when_label=when_label,
+    )
+    world.active_dialog = session
+    stamp = when_label or "—"
+    ttl = session.display_title()
+    return fmt.join_blocks(
+        fmt.ok("Considering with ECHO"),
+        fmt.hint(f"title {ttl}  ·  when {stamp}"),
+        fmt.hint(
+            f"SELF → ECHO alternate.  /self …  /echo …  ·  {FIN_TOKEN} ends"
+        ),
+        gap=0,
     )
 
 
@@ -2605,12 +2692,9 @@ def _dialog_input(world: World, line: str) -> str:
         speaker, text = sess.append_line(line)
     except ValueError as e:
         return fmt.hint(str(e))
-    who = "you" if speaker == sess.player_name else None
-    return fmt.join_blocks(
-        format_script_turn(speaker, text, you_label=who),
-        fmt.hint(f"… continue, or {FIN_TOKEN}"),
-        gap=0,
-    )
+    who = "you" if speaker in (sess.player_name, "SELF") else None
+    # Script turn only — no coach footer every line
+    return format_script_turn(speaker, text, you_label=who)
 
 
 def _finish_dialog(world: World) -> str:
@@ -2646,34 +2730,24 @@ def _finish_dialog(world: World) -> str:
         f"Transcript: {dslug}\n"
         f"Re-read: dialogs show {dslug}"
     )
-    if sess.place_id:
+    noted_on: set[str] = set()
+    for iid in (sess.place_id, sess.partner_id, sess.player_id):
+        if not iid or iid in noted_on:
+            continue
+        noted_on.add(iid)
         world.add_lore(
             "instance",
-            sess.place_id,
+            iid,
             body=lore_body,
             title=lore_title,
             timeline_instance_id=sess.timeline_id,
             when_label=sess.when_label,
             author="dialog",
         )
-    world.add_lore(
-        "instance",
-        sess.partner_id,
-        body=lore_body,
-        title=lore_title,
-        timeline_instance_id=sess.timeline_id,
-        when_label=sess.when_label,
-        author="dialog",
-    )
 
     return fmt.join_blocks(
         fmt.ok(f"Dialog ended · {title}"),
-        fmt.hint(
-            f"saved {dslug}  ·  lore noted for {sess.player_name} & {sess.partner_name}"
-        ),
-        fmt.hint(
-            f"Re-read:  dialogs  ·  dialogs show {dslug}  ·  dialogs show 1"
-        ),
+        fmt.hint(f"saved {dslug}"),
         gap=0,
     )
 
@@ -2901,7 +2975,8 @@ def _help(arg: str) -> str:
         f"[bold]{fmt.safe('first verbs')}[/bold]  [dim]·[/dim]  soft reminders",
         fmt.hint("remember · look — what you hold of this place"),
         fmt.hint("@desc · @desc <<studio — sculpt this beat"),
-        fmt.hint("consider SELF | … · consider ECHO | … — think back to yourself"),
+        fmt.hint("consider · consider | title — dialog with ECHO (/fin ends)"),
+        fmt.hint("consider note SELF|ECHO | … — one-shot lore note"),
         fmt.hint("cycle · cycle ʞ · cycle 0 — Day of Days / numbered days"),
         fmt.hint("node + · + · node next · node prev · node list"),
         fmt.hint("rename — the name you remember here"),

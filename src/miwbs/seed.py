@@ -36,11 +36,11 @@ def seed_world(conn: sqlite3.Connection, flavor: str = "mentalor") -> None:
 
 def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     """
-    Day of Days (Cycle ʞ): **zero point** — only SELF, untyped, code ``0``.
+    Day of Days (Cycle ʞ): zero point — SELF (0) and ECHO (1), both untyped.
 
     No kind/type yet. No Concept prime. No taught mentor types.
-    From here you teach type ``concept`` and mint the VEN of Concept yourself
-    as thinking produces them. Remember surface = SELF + Cycle nodes.
+    ``consider`` opens a talk-style dialog with ECHO (self answering self).
+    Remember surface = SELF + Cycle nodes.
     """
     from . import cycle as cycle_mod
     from . import mentor as mentor_mod
@@ -48,7 +48,7 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     init_schema(conn)
     w = World(conn)
 
-    # Untyped zero-point Thinker (before Concept is a type or a prime)
+    # Untyped zero-point Thinker
     self_ven = w.create_ven(
         "SELF",
         "",  # no type
@@ -60,15 +60,24 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     w.set_name_override(self_inst, "the pressure of something")
     w.set_description(self_inst, "")
 
+    # Untyped backflow — not a person VEN; dialog partner for consider
+    echo_ven = w.create_ven(
+        "ECHO",
+        "",
+        "The Thinker's other mouth — pressure answering pressure.",
+        code="1",
+    )
+    echo_inst = w.instantiate(echo_ven)
+    set_meta(conn, "echo_instance_id", echo_inst)
+
     set_meta(conn, "world_name", "Day of Days")
-    set_meta(conn, "seed_version", "mentalor-ʞ-4")
+    set_meta(conn, "seed_version", "mentalor-ʞ-5")
     cycle_mod.set_mentalor_mode(w, True)
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)
     cycle_mod.apply_node_to_surface(
         w, cycle_mod.ensure_current(st), cycle_mod.current_face(st)
     )
-    # Empty mentor workshop — type concept is not pre-taught
     mentor_mod.bootstrap_world_workshop(w, initial_types=())
 
 

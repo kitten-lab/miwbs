@@ -67,8 +67,12 @@ Stored as lore rows; in mentalor voice they print as **considerations**.
 | VEN | Kind | Code | Role |
 |-----|------|------|------|
 | **SELF** | *(none)* | **`0`** | The Thinker — untyped zero point |
+| **ECHO** | *(none)* | **`1`** | Backflow mouth — dialog partner for `consider` |
 
 No Concept prime. No taught types. No person/place/bin/realm/timeline.
+
+**consider** opens a talk-style SELF ↔ ECHO dialog (`/fin` ends).  
+**consider note** still feeds one-shot lore notes.
 
 From here you shape:
 

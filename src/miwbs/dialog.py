@@ -42,13 +42,28 @@ class DialogSession:
             raise ValueError("Empty line — say something, or /fin to end.")
 
         low = text.lower()
-        if low.startswith("/you "):
+        # /you · /self · /i  — player (SELF)
+        # /them · /echo · /e — partner (ECHO in consider)
+        if low.startswith("/you ") or low.startswith("/self ") or low.startswith("/i "):
+            prefix_len = 5 if low.startswith("/you ") else (
+                6 if low.startswith("/self ") else 3
+            )
             speaker = self.player_name
-            text = text[5:].strip()
+            text = text[prefix_len:].strip()
             self.expect_player = False
-        elif low.startswith("/them "):
+        elif (
+            low.startswith("/them ")
+            or low.startswith("/echo ")
+            or low.startswith("/e ")
+        ):
+            if low.startswith("/them "):
+                prefix_len = 6
+            elif low.startswith("/echo "):
+                prefix_len = 6
+            else:
+                prefix_len = 3
             speaker = self.partner_name
-            text = text[6:].strip()
+            text = text[prefix_len:].strip()
             self.expect_player = True
         elif self.expect_player:
             speaker = self.player_name

@@ -26,18 +26,35 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIn("you remember", r.message)
         self.assertIn("CYCʞ-0", r.message)
 
-    def test_only_self_untyped_code_zero(self) -> None:
+    def test_self_and_echo_untyped(self) -> None:
         rows = self.world.conn.execute(
-            "SELECT name, kind, code FROM vens"
+            "SELECT name, kind, code FROM vens ORDER BY code"
         ).fetchall()
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["name"], "SELF")
-        self.assertEqual((rows[0]["kind"] or "").strip(), "")
-        self.assertEqual(rows[0]["code"], "0")
+        self.assertEqual(len(rows), 2)
+        by_code = {r["code"]: r for r in rows}
+        self.assertEqual(by_code["0"]["name"], "SELF")
+        self.assertEqual((by_code["0"]["kind"] or "").strip(), "")
+        self.assertEqual(by_code["1"]["name"], "ECHO")
+        self.assertEqual((by_code["1"]["kind"] or "").strip(), "")
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
-        self.assertEqual(n_inst, 1)
+        self.assertEqual(n_inst, 2)
+
+    def test_consider_starts_echo_dialog(self) -> None:
+        from miwbs.format import plain
+
+        r = dispatch(self.world, "consider | soft pressure")
+        self.assertIn("ECHO", plain(r.message))
+        self.assertIsNotNone(self.world.active_dialog)
+        self.assertEqual(self.world.active_dialog.partner_name, "ECHO")
+        self.assertEqual(self.world.active_dialog.player_name, "SELF")
+        # speak turns
+        dispatch(self.world, "is there light?")
+        dispatch(self.world, "only the sense of something")
+        end = dispatch(self.world, "/fin")
+        self.assertIsNone(self.world.active_dialog)
+        self.assertIn("ended", plain(end.message).lower())
 
     def test_zero_point_no_types_until_taught(self) -> None:
         from miwbs import mentor
@@ -69,15 +86,15 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertTrue(st.current_path.startswith("0."))
         self.assertIn(st.current_path, st.cycles["ʞ"].order)
 
-    def test_consider_self_echo(self) -> None:
-        r = dispatch(self.world, "consider SELF | pressure?")
-        self.assertTrue(r.ok)
-        self.assertIn("SELF", r.message)
-        r2 = dispatch(self.world, "consider ECHO | coming through.")
-        self.assertTrue(r2.ok)
-        listed = dispatch(self.world, "consider")
-        self.assertIn("pressure?", listed.message)
-        self.assertIn("ECHO", listed.message)
+    def test_consider_note_lore(self) -> None:
+        from miwbs.format import plain
+
+        r = dispatch(self.world, "consider note SELF | pressure?")
+        self.assertIn("note", plain(r.message).lower())
+        r2 = dispatch(self.world, "consider note ECHO | coming through.")
+        self.assertIn("ECHO", plain(r2.message))
+        listed = dispatch(self.world, "consider note")
+        self.assertIn("pressure?", plain(listed.message))
 
 
 if __name__ == "__main__":
