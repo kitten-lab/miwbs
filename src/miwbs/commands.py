@@ -75,6 +75,22 @@ def dispatch(world: World, line: str) -> CommandResult:
     cmd = parts[0].lower()
     arg = parts[1] if len(parts) > 1 else ""
     cmd = _CREATOR_SHORTHAND.get(cmd, cmd)
+    # Node stream shorthands (exact first token; also /n+ style)
+    if cmd.startswith("/") and len(cmd) > 1:
+        cmd = cmd[1:]
+    _NODE_STREAM = {
+        "n+": "+",
+        "+n": "+",
+        "n>": "next",
+        ">n": "next",
+        ">": "next",
+        "n<": "prev",
+        "<n": "prev",
+        "<": "prev",
+        # bare + already handled below
+    }
+    if cmd in _NODE_STREAM and not arg:
+        return CommandResult(True, _node_cmd(world, _NODE_STREAM[cmd]))
 
     try:
         if cmd in ("quit", "exit", "q"):
@@ -2978,7 +2994,7 @@ def _help(arg: str) -> str:
         fmt.hint("consider · consider | title — dialog with ECHO (/fin ends)"),
         fmt.hint("consider note SELF|ECHO | … — one-shot lore note"),
         fmt.hint("cycle · cycle ʞ · cycle 0 — Day of Days / numbered days"),
-        fmt.hint("node + · + · node next · node prev · node list"),
+        fmt.hint("n+  n>  n<  ·  +  ·  node list  ·  Alt+A / Alt+←→ in tui"),
         fmt.hint("rename — the name you remember here"),
         fmt.hint("clear · quit"),
         fmt.hint("the rest of the machine is still there — reach it when the story needs a joint"),

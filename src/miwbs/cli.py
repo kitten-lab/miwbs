@@ -499,11 +499,15 @@ def run_textual(world: World, world_path: Path) -> None:
     from .history import CommandHistory
 
     class HistoryInput(Input):
-        """Input with ↑ / ↓ command history."""
+        """Input with ↑ / ↓ command history; Alt+A / Alt+←→ for node stream."""
 
         BINDINGS = [
             Binding("up", "hist_up", "Prev cmd", show=False, priority=True),
             Binding("down", "hist_down", "Next cmd", show=False, priority=True),
+            # Node stream — do not steal bare ←/→ (cursor in the prompt)
+            Binding("alt+a", "node_add", "Node +", show=False, priority=True),
+            Binding("alt+right", "node_next", "Node >", show=False, priority=True),
+            Binding("alt+left", "node_prev", "Node <", show=False, priority=True),
         ]
 
         def __init__(self, *args, **kwargs) -> None:
@@ -521,6 +525,32 @@ def run_textual(world: World, world_path: Path) -> None:
             if nxt is not None:
                 self.value = nxt
                 self.cursor_position = len(self.value)
+
+        def _run_node_shorthand(self, token: str) -> None:
+            """Dispatch n+ / n> / n< from keybinding into the world log."""
+            app = self.app
+            if not hasattr(app, "_write_world_turn"):
+                return
+            log = app.query_one("#log", RichLog)
+            result = dispatch(world, token)
+            app._write_world_turn(  # noqa: SLF001 — StudioApp private by design
+                log,
+                token,
+                result.message or None,
+                clear_log=result.clear_log,
+            )
+            app._refresh_studio_header()  # noqa: SLF001
+            if result.quit:
+                app.exit()
+
+        def action_node_add(self) -> None:
+            self._run_node_shorthand("n+")
+
+        def action_node_next(self) -> None:
+            self._run_node_shorthand("n>")
+
+        def action_node_prev(self) -> None:
+            self._run_node_shorthand("n<")
 
     class StudioApp(App[None]):
         """World log + help side rail; book open uses a soft full-width reader modal."""

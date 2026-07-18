@@ -86,6 +86,16 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertTrue(st.current_path.startswith("0."))
         self.assertIn(st.current_path, st.cycles["ʞ"].order)
 
+    def test_node_stream_shorthands(self) -> None:
+        r = dispatch(self.world, "n+")
+        self.assertIn("CYCʞ-1", r.message)
+        r2 = dispatch(self.world, "n<")
+        self.assertIn("CYCʞ-0", r2.message)
+        r3 = dispatch(self.world, "n>")
+        self.assertIn("CYCʞ-1", r3.message)
+        r4 = dispatch(self.world, "/n+")
+        self.assertIn("CYCʞ-", r4.message)
+
     def test_consider_note_lore(self) -> None:
         from miwbs.format import plain
 
