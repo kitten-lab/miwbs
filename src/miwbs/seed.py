@@ -36,62 +36,33 @@ def seed_world(conn: sqlite3.Connection, flavor: str = "mentalor") -> None:
 
 def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     """
-    Day of Days (Cycle ʞ): black pressure, SELF, no cosmology furniture in face.
+    Day of Days (Cycle ʞ): **only SELF** in the VEN table.
 
-    Engine still needs silent realm/timeline rows to situate instances;
-    they are not the mentalor time spine — Cycle ʞ · nodes are.
+    SELF is a **concept** prime — root of all concepts. No place / realm /
+    timeline / type furniture. Types are not seeded; they are taught later
+    (primes → type via mentor workshop). Remember surface = SELF + Cycle nodes.
     """
     from . import cycle as cycle_mod
 
     init_schema(conn)
     w = World(conn)
 
-    # Silent layers — not the narrative clock
-    realm_ven = w.create_ven(
-        "Unspoken",
-        "realm",
-        "Engine situate only — not yet a produced sense of realm.",
-    )
-    tl_ven = w.create_ven(
-        "Before Days",
-        "timeline",
-        "Engine situate only — mentalor time is Cycle · node.",
-    )
-    r = w.instantiate(realm_ven)
-    t = w.instantiate(tl_ven)
-
-    place_ven = w.create_ven(
-        "Remembrance",
-        "place",
-        "",
-    )
-    here = w.instantiate(
-        place_ven,
-        name_override="the pressure of something",
-        description_override="",
-        realm_instance_id=r,
-        timeline_instance_id=t,
-    )
-
     self_ven = w.create_ven(
         "SELF",
-        "person",
-        "The Thinker — before form, before talk-as-create.",
+        "concept",
+        "The Thinker — root of all concepts. Before form, before talk-as-create.",
     )
-    self_inst = w.instantiate(
-        self_ven,
-        realm_instance_id=r,
-        timeline_instance_id=t,
-    )
-    w.put_in(self_inst, here, slot="interior")
+    self_inst = w.instantiate(self_ven)
     w.set_player(self_inst)
+    w.set_name_override(self_inst, "the pressure of something")
+    w.set_description(self_inst, "")
 
     set_meta(conn, "world_name", "Day of Days")
-    set_meta(conn, "seed_version", "mentalor-ʞ-1")
+    set_meta(conn, "seed_version", "mentalor-ʞ-2")
     cycle_mod.set_mentalor_mode(w, True)
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)
-    cycle_mod.apply_node_to_place(
+    cycle_mod.apply_node_to_surface(
         w, cycle_mod.ensure_current(st), cycle_mod.current_face(st)
     )
 

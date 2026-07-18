@@ -18,6 +18,7 @@ _VEN_CODE_INST_RE = re.compile(
 
 # Kind → typeable 3-letter prefix (stable; used for VEN codes)
 KIND_CODE_PREFIX: dict[str, str] = {
+    "concept": "CON",
     "person": "PER",
     "place": "PLC",
     "bin": "BIN",
@@ -33,7 +34,6 @@ KIND_CODE_PREFIX: dict[str, str] = {
     "object": "OBJ",
     "book": "BOK",
     "material": "MAT",
-    "concept": "CON",
     "feeling": "FEL",
     "goal": "GOL",
     "desire": "DES",

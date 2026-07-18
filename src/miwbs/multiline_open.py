@@ -271,7 +271,9 @@ def _desc_target(world, session: MultilineSession):
         if err or thing is None:
             return None
         return thing
-    return world.player_location()
+    from .commands import _remember_surface_inst
+
+    return _remember_surface_inst(world)
 
 
 def commit_multiline_session(

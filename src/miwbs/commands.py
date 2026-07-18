@@ -348,16 +348,19 @@ def _consider(world: World, arg: str) -> str:
     """
     from . import cycle as cycle_mod
 
-    loc = world.player_location()
-    if loc is None:
+    sid = cycle_mod.remember_surface_id(world)
+    if not sid:
+        return fmt.hint("Nowhere to leave a consideration.")
+    surf = world.get_instance(sid)
+    if surf is None:
         return fmt.hint("Nowhere to leave a consideration.")
     raw = (arg or "").strip()
     if not raw:
-        rows = world.lore_for("instance", loc.id)
+        rows = world.lore_for("instance", sid)
         if not rows:
             return fmt.hint("No considerations here yet.  consider SELF | …")
         word = "considerations" if cycle_mod.is_mentalor(world) else "lore"
-        return _format_lore_rows(f"{word.capitalize()} · {loc.name}", rows)
+        return _format_lore_rows(f"{word.capitalize()} · {surf.name}", rows)
 
     speaker = "SELF"
     body = raw
@@ -379,14 +382,13 @@ def _consider(world: World, arg: str) -> str:
         return fmt.hint("Usage: consider SELF | …   ·  consider ECHO | …")
 
     when_label = None
-    node_index = None
     if cycle_mod.is_mentalor(world):
         st = cycle_mod.load_state(world)
         when_label = cycle_mod.current_face(st)
 
     lid = world.add_lore(
         "instance",
-        loc.id,
+        sid,
         body,
         title=speaker,
         when_label=when_label,
@@ -862,7 +864,12 @@ def _look(world: World, arg: str = "") -> str:
     if target:
         return _examine(world, target, deep=deep)
 
+    from . import cycle as cycle_mod
+
     loc = world.player_location()
+    # Day of Days: no place — remember surface is SELF (player instance)
+    if not loc and cycle_mod.is_mentalor(world):
+        return _look_mentalor_self(world, deep=deep)
     if not loc:
         return fmt.hint("You are nowhere. (No player location.)")
     info = world.describe_place(loc)
@@ -887,8 +894,6 @@ def _look(world: World, arg: str = "") -> str:
     presence_blocks = _format_look_presence_blocks(
         placement, world=world, deep=deep
     )
-
-    from . import cycle as cycle_mod
 
     lore_block = None
     lore_rows = list(info["lore"] or [])
@@ -919,6 +924,38 @@ def _look(world: World, arg: str = "") -> str:
         lore_block,
         gap=1,
     )
+
+
+def _look_mentalor_self(world: World, *, deep: bool = False) -> str:
+    """Remember surface when only SELF exists (no place container)."""
+    from . import cycle as cycle_mod
+    from .ids import display_name
+
+    pid = world.player_id()
+    if not pid:
+        return fmt.hint("No thinker yet.")
+    self_inst = world.get_instance(pid)
+    if self_inst is None:
+        return fmt.hint("No thinker yet.")
+    plain_name = display_name(self_inst.name)
+    header = cycle_mod.remember_header_line(world, plain_name) or (
+        f"[bold]you remember[/bold] {fmt.safe(plain_name)}"
+    )
+    body = fmt.prose(self_inst.description or "")
+    lore_rows = world.lore_for("instance", pid)
+    lore_block = None
+    if deep:
+        if lore_rows:
+            lore_block = _format_lore_rows(
+                f"Considerations · {plain_name}", lore_rows
+            )
+        else:
+            lore_block = fmt.hint("No considerations yet.")
+    elif lore_rows:
+        lore_block = fmt.hint(
+            f"{len(lore_rows)} considerations — type consider  ·  look --deep"
+        )
+    return fmt.join_blocks(header, body, lore_block, gap=1)
 
 
 def _locate(world: World, arg: str) -> str:
@@ -5034,10 +5071,9 @@ def _desc(world: World, arg: str) -> str:
             )
 
         if target is None:
-            loc = world.player_location()
-            if not loc:
+            target = _remember_surface_inst(world)
+            if target is None:
                 return fmt.hint("Nowhere.")
-            target = loc
         return _desc_commit(
             world,
             target,
@@ -5055,13 +5091,13 @@ def _desc(world: World, arg: str) -> str:
             )
         return _apply_desc_payload(world, thing, rest, label=thing.name)
 
-    # ── current place (default) ─────────────────────────────────────────
-    loc = world.player_location()
+    # ── current place — or SELF on Day of Days ──────────────────────────
+    loc = _remember_surface_inst(world)
     if not loc:
         return fmt.hint("Nowhere.")
 
     if not raw:
-        body = loc.description.strip()
+        body = (loc.description or "").strip()
         shown = fmt.prose(body) if body else fmt.hint("(no description)")
         return fmt.join_blocks(
             fmt.title_line(f"Description · {loc.name}"),
@@ -5069,12 +5105,22 @@ def _desc(world: World, arg: str) -> str:
             fmt.hint(
                 "@desc <text>  ·  @desc studio | **bold**  ·  "
                 "@desc + / ++ / clear  ·  @desc commit  ·  "
-                "@desc on <item> …  ·  @desc <<studio  ·  help studio-text"
+                "@desc on <item> …  ·  @desc <<studio"
             ),
             gap=1,
         )
 
     return _apply_desc_payload(world, loc, raw, label="here")
+
+
+def _remember_surface_inst(world: World) -> InstanceView | None:
+    """Place if contained; else player SELF (mentalor Day of Days)."""
+    from . import cycle as cycle_mod
+
+    sid = cycle_mod.remember_surface_id(world)
+    if not sid:
+        return None
+    return world.get_instance(sid)
 
 
 def _undo(world: World) -> str:
@@ -5714,7 +5760,7 @@ def _create(world: World, arg: str) -> str:
     if kind not in KINDS:
         return fmt.err(
             f"Unknown kind {kind!r}.  Try: kinds  ·  "
-            f"roots: person place bin thing folio symbol sense event"
+            f"roots: concept person place bin thing folio symbol sense event"
         )
     if subtype and kind not in SUBTYPE_KINDS:
         return fmt.err(

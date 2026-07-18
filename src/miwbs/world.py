@@ -29,6 +29,7 @@ from .ids import (
 # Lean roots — known systems of being (see IDEAS.md design lock).
 # realm/timeline stay for layer chrome (not “adventure furniture” roots).
 KINDS = (
+    "concept",  # root of meaning; Day of Days SELF is concept
     "person",
     "place",
     "bin",
@@ -53,7 +54,7 @@ KIND_ALIASES: dict[str, str] = {
     "object": "thing",
     "material": "thing",
     "book": "folio",
-    "concept": "symbol",
+    # concept is a root (SELF / form-house); do not fold to symbol
     "feeling": "sense",
     "goal": "sense",
     "desire": "sense",

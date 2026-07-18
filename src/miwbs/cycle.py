@@ -318,36 +318,56 @@ def set_cycle(state: CycleState, cycle_raw: str) -> Cycle:
     return cyc
 
 
-def apply_node_to_place(world: World, node: CycleNode, face: str) -> None:
-    """Push node title/body onto the player's location (remember surface)."""
+def remember_surface_id(world: World) -> str | None:
+    """
+    Instance that holds the remember title/body for the current beat.
+
+    Prefer player location (place world). Day of Days: no place — use SELF
+    (the player instance).
+    """
     loc = world.player_location()
-    if loc is None:
+    if loc is not None:
+        return loc.id
+    return world.player_id()
+
+
+def apply_node_to_surface(world: World, node: CycleNode, face: str) -> None:
+    """Push node title/body onto the remember surface (place or SELF)."""
+    sid = remember_surface_id(world)
+    if not sid:
         return
     title = (node.title or "").strip() or "something not yet named"
     body = node.body if node.body is not None else ""
-    world.set_name_override(loc.id, title)
-    world.set_description(loc.id, body)
+    world.set_name_override(sid, title)
+    world.set_description(sid, body)
+
+
+# Back-compat alias
+apply_node_to_place = apply_node_to_surface
 
 
 def pull_place_into_node(world: World, node: CycleNode) -> None:
-    """After @desc / rename, copy place text back into current node."""
-    loc = world.player_location()
-    if loc is None:
+    """After @desc / rename, copy surface text back into current node."""
+    sid = remember_surface_id(world)
+    if not sid:
         return
-    node.body = loc.description if loc.description is not None else ""
-    ov = world.get_name_override(loc.id)
+    inst = world.get_instance(sid)
+    if inst is None:
+        return
+    node.body = inst.description if inst.description is not None else ""
+    ov = world.get_name_override(sid)
     if ov:
         node.title = str(ov)
-    elif loc.name:
-        node.title = loc.name
+    elif inst.name:
+        node.title = inst.name
 
 
 def sync_world_to_current(world: World) -> str:
-    """Load state, apply current node to place, return face address."""
+    """Load state, apply current node to surface, return face address."""
     st = load_state(world)
     node = ensure_current(st)
     face = current_face(st)
-    apply_node_to_place(world, node, face)
+    apply_node_to_surface(world, node, face)
     save_state(world, st)
     return face
 

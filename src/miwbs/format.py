@@ -23,6 +23,7 @@ LABEL_WIDTH = 10
 
 # Distinct Rich color per VEN kind (and soft colors for link types).
 KIND_COLORS: dict[str, str] = {
+    "concept": "bright_white",
     "person": "yellow",
     "place": "bright_white",
     "bin": "bright_cyan",
@@ -37,7 +38,6 @@ KIND_COLORS: dict[str, str] = {
     "object": "bright_yellow",
     "book": "bright_yellow",
     "material": "gold1",
-    "concept": "white",
     "feeling": "magenta",
     "goal": "bright_magenta",
     "desire": "magenta",
