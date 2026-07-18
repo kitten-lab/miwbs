@@ -3016,7 +3016,7 @@ def _help(arg: str) -> str:
         fmt.hint("remember · look — what you hold of this place"),
         fmt.hint("@desc · @desc <<studio — sculpt this beat"),
         fmt.hint("consider · consider | title — dialog with ECHO (/fin ends)"),
-        fmt.hint("consider note SELF|ECHO | … — one-shot lore note"),
+        fmt.hint("consider note … · lore — notes / contributions on SELF"),
         fmt.hint("cycle · cycle ʞ · cycle 0 — Day of Days / numbered days"),
         fmt.hint("n+  n>  n<  ·  +  ·  node list  ·  Alt+A  Alt+,  Alt+.  (tui)"),
         fmt.hint("rename — the name you remember here"),
@@ -4475,7 +4475,7 @@ def _lore(world: World, arg: str) -> str:
     if arg.lower().startswith("add from "):
         return _lore_add_from_book(world, arg[9:])
 
-    # ── place instance: add ─────────────────────────────────────────────
+    # ── place / remember-surface: add ───────────────────────────────────
     if arg.lower().startswith("add "):
         # avoid treating "add from" twice (already handled)
         add_rest, sw_peel, ni_peel = _peel_and_story_when(arg[4:])
@@ -4486,15 +4486,15 @@ def _lore(world: World, arg: str) -> str:
         sw, ni = _story_when_for_lore_label(when_label)
         if sw_peel != "@unknown":
             sw, ni = sw_peel, ni_peel
-        loc = world.player_location()
-        if not loc:
+        surf = _remember_surface_inst(world)
+        if not surf:
             return fmt.hint("Nowhere.")
         lid = world.add_lore(
             "instance",
-            loc.id,
+            surf.id,
             body=body,
             title=title,
-            timeline_instance_id=loc.timeline_instance_id,
+            timeline_instance_id=surf.timeline_instance_id,
             when_label=when_label,
             author="builder",
         )
@@ -4509,9 +4509,9 @@ def _lore(world: World, arg: str) -> str:
             verb="lore",
             story_when=sw,
             node_index=ni,
-            note=title or loc.name,
-            realm_instance_id=loc.realm_instance_id,
-            timeline_instance_id=loc.timeline_instance_id,
+            note=title or surf.name,
+            realm_instance_id=surf.realm_instance_id,
+            timeline_instance_id=surf.timeline_instance_id,
         )
         stamp_note = f"  ·  {when_label}" if when_label else ""
         return fmt.ok(
@@ -4537,16 +4537,14 @@ def _lore(world: World, arg: str) -> str:
             "lore ven <slug> …  |  lore search …"
         )
 
-    loc = world.player_location()
-    if not loc:
+    # Default list: place if contained, else remember surface (SELF on Day of Days)
+    surf = _remember_surface_inst(world)
+    if not surf:
         return fmt.hint("Nowhere.")
-    rows = world.lore_for("instance", loc.id)
+    rows = world.lore_for("instance", surf.id)
     if not rows:
-        return fmt.hint(
-            "No lore for this place yet.  Use: lore add <body>  ·  "
-            "lore on <item> add …  ·  help lore"
-        )
-    return _format_lore_rows(loc.name, rows)
+        return fmt.hint("No lore here yet.")
+    return _format_lore_rows(surf.name, rows)
 
 
 def _dig(world: World, arg: str) -> str:
