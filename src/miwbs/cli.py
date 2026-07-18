@@ -504,10 +504,14 @@ def run_textual(world: World, world_path: Path) -> None:
         BINDINGS = [
             Binding("up", "hist_up", "Prev cmd", show=False, priority=True),
             Binding("down", "hist_down", "Next cmd", show=False, priority=True),
-            # Node stream — do not steal bare ←/→ (cursor in the prompt)
+            # Node stream — Alt alters time-position (not bare arrows; those move the cursor)
+            # , .  comically proper: back / forth on the stream
             Binding("alt+a", "node_add", "Node +", show=False, priority=True),
-            Binding("alt+right", "node_next", "Node >", show=False, priority=True),
-            Binding("alt+left", "node_prev", "Node <", show=False, priority=True),
+            Binding("alt+comma", "node_prev", "Node <", show=False, priority=True),
+            Binding("alt+full_stop", "node_next", "Node >", show=False, priority=True),
+            # period key name varies by Textual/platform — also bind alt+.
+            Binding("alt+.", "node_next", "Node >", show=False, priority=True),
+            Binding("alt+,", "node_prev", "Node <", show=False, priority=True),
         ]
 
         def __init__(self, *args, **kwargs) -> None:
