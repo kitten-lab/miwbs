@@ -71,6 +71,30 @@ class ScriptFormatTests(unittest.TestCase):
         self.assertRegex(t, r"Builder.*\n\s+Hi there")
 
 
+class DialogCodeTests(unittest.TestCase):
+    def test_save_allocates_dlg_code_and_resolve(self) -> None:
+        w = _world()
+        # minimal talk with someone in seed
+        r = dispatch(w, "talk cartographer of returns | First Signal")
+        self.assertTrue(r.ok, r.message)
+        self.assertIsNotNone(w.active_dialog)
+        dispatch(w, "Hello.")
+        dispatch(w, "Good day.")
+        end = dispatch(w, FIN_TOKEN)
+        text = plain(end.message)
+        self.assertRegex(text, r"DLG-\d{3}")
+        row = w.conn.execute(
+            "SELECT code, slug FROM dialogs ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        self.assertIsNotNone(row)
+        code = row["code"]
+        self.assertRegex(code or "", r"^DLG-\d{3}$")
+        found = w.find_dialog(code)
+        self.assertIsNotNone(found)
+        found2 = w.find_dialog("dlg 1")
+        self.assertIsNotNone(found2)
+
+
 class ParseWhenStampTests(unittest.TestCase):
     def test_variants(self) -> None:
         self.assertEqual(parse_when_stamp("when Before the Roads"), "Before the Roads")

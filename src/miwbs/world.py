@@ -2763,6 +2763,14 @@ class World:
         except (KeyError, IndexError, TypeError):
             return ""
 
+    def dialog_code_of(self, row: sqlite3.Row | dict[str, Any]) -> str:
+        """Compact DLG-NNN code; empty string if missing."""
+        try:
+            code = row["code"]
+        except (KeyError, IndexError, TypeError):
+            return ""
+        return str(code or "").strip()
+
     def get_dialog_by_slug(self, slug: str) -> sqlite3.Row | None:
         key = (slug or "").strip()
         if not key:
@@ -2779,6 +2787,35 @@ class World:
             (cute,),
         ).fetchone()
 
+    def get_dialog_by_code(self, code: str) -> sqlite3.Row | None:
+        """Resolve DLG-001 / dlg 1 / dlg-1 soft typing."""
+        from .ids import normalize_ref_separators, parse_ven_code
+
+        q = (code or "").strip()
+        if not q:
+            return None
+        parsed = parse_ven_code(q) or parse_ven_code(normalize_ref_separators(q))
+        key = (parsed or normalize_ref_separators(q) or q).upper()
+        row = self.conn.execute(
+            "SELECT * FROM dialogs WHERE upper(code) = ?", (key,)
+        ).fetchone()
+        if row:
+            return row
+        # DLG 1 / dlg-1 → DLG-001
+        soft = normalize_ref_separators(q)
+        if soft.upper().startswith("DLG"):
+            digits = "".join(c for c in soft if c.isdigit())
+            if digits:
+                try:
+                    want = format_ven_code("DLG", int(digits))
+                except ValueError:
+                    return None
+                return self.conn.execute(
+                    "SELECT * FROM dialogs WHERE upper(code) = ?",
+                    (want.upper(),),
+                ).fetchone()
+        return None
+
     def allocate_dialog_slug(self, title: str) -> str:
         """Unique cute slug from title: FIRST-MEETING, FIRST-MEETING-2, …"""
         base = cute_name(title or "") or "DIALOG"
@@ -2790,6 +2827,21 @@ class World:
             candidate = f"{base}-{n}"
             n += 1
         return candidate
+
+    def allocate_dialog_code(self) -> str:
+        """Next DLG-NNN for a completed dialog transcript."""
+        rows = self.conn.execute(
+            "SELECT code FROM dialogs WHERE code IS NOT NULL AND TRIM(code) != ''"
+        ).fetchall()
+        max_n = 0
+        for r in rows:
+            c = (r["code"] or "").strip().upper()
+            if c.startswith("DLG-"):
+                try:
+                    max_n = max(max_n, int(c.split("-", 1)[1]))
+                except ValueError:
+                    pass
+        return format_ven_code("DLG", max_n + 1)
 
     def save_dialog(
         self,
@@ -2806,16 +2858,19 @@ class World:
     ) -> str:
         did = new_id("dlg")
         slug = self.allocate_dialog_slug(title or "")
+        code = self.allocate_dialog_code()
         self.conn.execute(
             """
             INSERT INTO dialogs(
-                id, slug, title, when_label, place_instance_id, timeline_instance_id,
+                id, slug, code, title, when_label, place_instance_id,
+                timeline_instance_id,
                 speaker_a_id, speaker_b_id, speaker_a_name, speaker_b_name, transcript
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 did,
                 slug,
+                code,
                 title or "",
                 when_label,
                 place_instance_id,
@@ -2881,6 +2936,9 @@ class World:
         q = query.strip()
         if not q:
             return None
+        by_code = self.get_dialog_by_code(q)
+        if by_code:
+            return by_code
         by_slug = self.get_dialog_by_slug(q)
         if by_slug:
             return by_slug
@@ -2914,6 +2972,10 @@ class World:
             if names_match(q, r["title"] or "")
             or (r["title"] or "").casefold() == q.casefold()
             or names_match(q, self.dialog_slug_of(r))
+            or (
+                self.dialog_code_of(r)
+                and names_match(q, self.dialog_code_of(r))
+            )
         ]
         if len(hits) == 1:
             return hits[0]

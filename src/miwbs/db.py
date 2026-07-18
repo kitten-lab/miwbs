@@ -112,38 +112,61 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
         "ON text_revisions(subject_type, subject_id, created_at)"
     )
 
-    # Dialogs: cute typeable slug (FIRST-MEETING) alongside opaque dlg_ id
+    # Dialogs: cute slug + compact DLG-NNN code alongside opaque dlg_ id
     dlg_info = conn.execute("PRAGMA table_info(dialogs)").fetchall()
     if dlg_info:
         dlg_cols = {row[1] for row in dlg_info}
         if "slug" not in dlg_cols:
             conn.execute("ALTER TABLE dialogs ADD COLUMN slug TEXT")
-        from .ids import cute_name
+            dlg_cols.add("slug")
+        if "code" not in dlg_cols:
+            conn.execute("ALTER TABLE dialogs ADD COLUMN code TEXT")
+            dlg_cols.add("code")
+        from .ids import cute_name, format_ven_code
 
         rows = conn.execute(
-            "SELECT id, title, slug FROM dialogs ORDER BY created_at, id"
+            "SELECT id, title, slug, code FROM dialogs ORDER BY created_at, id"
         ).fetchall()
         used: set[str] = set()
+        max_dlg_n = 0
         for r in rows:
             existing = (r["slug"] or "").strip()
             if existing:
                 used.add(existing.casefold())
-                continue
-            base = cute_name(r["title"] or "") or "DIALOG"
-            if base in ("UNNAMED", ""):
-                base = "DIALOG"
-            candidate = base
-            n = 2
-            while candidate.casefold() in used:
-                candidate = f"{base}-{n}"
-                n += 1
-            used.add(candidate.casefold())
-            conn.execute(
-                "UPDATE dialogs SET slug = ? WHERE id = ?",
-                (candidate, r["id"]),
-            )
+            code = (r["code"] or "").strip().upper()
+            if code.startswith("DLG-"):
+                try:
+                    max_dlg_n = max(max_dlg_n, int(code.split("-", 1)[1]))
+                except ValueError:
+                    pass
+        for r in rows:
+            existing = (r["slug"] or "").strip()
+            if not existing:
+                base = cute_name(r["title"] or "") or "DIALOG"
+                if base in ("UNNAMED", ""):
+                    base = "DIALOG"
+                candidate = base
+                n = 2
+                while candidate.casefold() in used:
+                    candidate = f"{base}-{n}"
+                    n += 1
+                used.add(candidate.casefold())
+                conn.execute(
+                    "UPDATE dialogs SET slug = ? WHERE id = ?",
+                    (candidate, r["id"]),
+                )
+            code = (r["code"] or "").strip()
+            if not code:
+                max_dlg_n += 1
+                conn.execute(
+                    "UPDATE dialogs SET code = ? WHERE id = ?",
+                    (format_ven_code("DLG", max_dlg_n), r["id"]),
+                )
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_dialogs_slug ON dialogs(slug)"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_dialogs_code ON dialogs(code)"
         )
 
     # Story-time nodes + material history (life of item)

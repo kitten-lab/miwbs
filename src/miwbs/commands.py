@@ -75,9 +75,8 @@ def dispatch(world: World, line: str) -> CommandResult:
     cmd = parts[0].lower()
     arg = parts[1] if len(parts) > 1 else ""
     cmd = _CREATOR_SHORTHAND.get(cmd, cmd)
-    # Node stream shorthands (exact first token; also /n+ style)
-    if cmd.startswith("/") and len(cmd) > 1:
-        cmd = cmd[1:]
+    # Node stream shorthands (exact first token; also /n+ style).
+    # Do not strip /fin, /you, /them — those are dialog tokens.
     _NODE_STREAM = {
         "n+": "+",
         "+n": "+",
@@ -87,7 +86,9 @@ def dispatch(world: World, line: str) -> CommandResult:
         "n<": "prev",
         "<n": "prev",
         "<": "prev",
-        # bare + already handled below
+        "/n+": "+",
+        "/n>": "next",
+        "/n<": "prev",
     }
     if cmd in _NODE_STREAM and not arg:
         return CommandResult(True, _node_cmd(world, _NODE_STREAM[cmd]))
@@ -2761,9 +2762,11 @@ def _finish_dialog(world: World) -> str:
             author="dialog",
         )
 
+    dcode = world.dialog_code_of(row) if row else ""
+    saved = f"{dcode}  ·  {dslug}" if dcode else dslug
     return fmt.join_blocks(
         fmt.ok(f"Dialog ended · {title}"),
-        fmt.hint(f"saved {dslug}"),
+        fmt.hint(f"saved {saved}"),
         gap=0,
     )
 
@@ -2796,25 +2799,13 @@ def _format_dialogs_list(
     for i, r in enumerate(rows, start=1):
         stamp = r["when_label"] or "—"
         handle = world.dialog_slug_of(r)
+        code = world.dialog_code_of(r) or "—"
+        typed = fmt.typed_unix_display(r["created_at"] or "")
         lines.append(
             fmt.bullet(
                 f"{i}. {r['title'] or 'Untitled'}",
-                f"{r['speaker_a_name']} & {r['speaker_b_name']}  ·  "
-                f"when {stamp}  ·  {handle}",
-            )
-        )
-    if scope == "here":
-        lines.append(
-            fmt.hint(
-                "dialogs show <n|slug|title>  ·  "
-                "dialogs all  ·  dialogs rename …  ·  dialogs when …"
-            )
-        )
-    else:
-        lines.append(
-            fmt.hint(
-                "dialogs show <n|slug|title>  ·  "
-                "bare dialogs = this place only"
+                f"{code}  ·  {r['speaker_a_name']} & {r['speaker_b_name']}  ·  "
+                f"when {stamp}  ·  {typed}  ·  {handle}",
             )
         )
     return "\n".join(lines)
@@ -2862,6 +2853,9 @@ def _dialogs(world: World, arg: str) -> str:
             return fmt.err(
                 f"No dialog matching {rest!r}.  Try: dialogs  ·  dialogs all"
             )
+        dcode = world.dialog_code_of(row)
+        dslug = world.dialog_slug_of(row)
+        handle = f"{dcode}  ·  {dslug}" if dcode else dslug
         return format_transcript_view(
             title=row["title"] or "Untitled dialog",
             when_label=row["when_label"],
@@ -2870,7 +2864,7 @@ def _dialogs(world: World, arg: str) -> str:
             transcript=row["transcript"] or "",
             created_at=row["created_at"] or "",
             dialog_id=row["id"],
-            dialog_slug=world.dialog_slug_of(row),
+            dialog_slug=handle,
         )
 
     if sub in ("when", "stamp"):

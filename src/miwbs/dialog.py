@@ -226,6 +226,7 @@ def format_transcript_view(
     a = display_name(speaker_a)
     b = display_name(speaker_b)
     handle = (dialog_slug or "").strip() or dialog_id
+    # Prefer compact code in the handle slot when caller passes DLG-… as slug
     return fmt.join_blocks(
         fmt.title_line(ttl),
         fmt.hint(f"{a}  &  {b}"),

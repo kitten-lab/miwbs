@@ -29,6 +29,7 @@ KIND_CODE_PREFIX: dict[str, str] = {
     "event": "EVT",
     "realm": "RLM",
     "timeline": "TLN",
+    "dialog": "DLG",
     # legacy (read/compat; create folds these away)
     "container": "CTR",  # old store-root codes still parse
     "object": "OBJ",

@@ -117,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_lore_timeline ON lore_revisions(timeline_instance
 CREATE TABLE IF NOT EXISTS dialogs (
     id                      TEXT PRIMARY KEY,
     slug                    TEXT,  -- cute typeable handle: FIRST-MEETING, RIDGE-TALK-2
+    code                    TEXT,  -- compact DLG-001 (storable ven-style code)
     title                   TEXT NOT NULL DEFAULT '',
     when_label              TEXT,
     place_instance_id       TEXT REFERENCES instances(id) ON DELETE SET NULL,
