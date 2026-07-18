@@ -310,6 +310,40 @@ def echo_line(msg: str) -> str:
     return f"[bold red] E C H O [/bold red]  {safe(msg)}"
 
 
+def typed_unix_display(created_at: str | None) -> str:
+    """
+    Wall-clock craft time as compact unix display: ``u|1735689600``.
+
+    Accepts SQLite ``datetime('now')`` strings, ISO-ish stamps, or already-unix.
+    Falls back to raw string if unparseable.
+    """
+    raw = (created_at or "").strip()
+    if not raw:
+        return "u|—"
+    if raw.isdigit():
+        return f"u|{int(raw)}"
+    # already u|…
+    if raw.lower().startswith("u|"):
+        return raw if raw[2:].strip() else "u|—"
+    from datetime import datetime, timezone
+
+    s = raw.replace("T", " ").replace("Z", "").strip()
+    # strip fractional seconds
+    if "." in s:
+        s = s.split(".", 1)[0]
+    for fmt_s in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    ):
+        try:
+            dt = datetime.strptime(s, fmt_s).replace(tzinfo=timezone.utc)
+            return f"u|{int(dt.timestamp())}"
+        except ValueError:
+            continue
+    return f"u|{safe(raw)}"
+
+
 def position_memory_success(
     ref: str,
     title: str,

@@ -229,7 +229,9 @@ def format_transcript_view(
     return fmt.join_blocks(
         fmt.title_line(ttl),
         fmt.hint(f"{a}  &  {b}"),
-        fmt.hint(f"when {stamp}  ·  typed {created_at}  ·  {handle}"),
+        fmt.hint(
+            f"when {stamp}  ·  {fmt.typed_unix_display(created_at)}  ·  {handle}"
+        ),
         format_script_transcript(transcript),
         gap=1,
     )

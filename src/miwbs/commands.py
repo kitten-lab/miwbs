@@ -3812,11 +3812,11 @@ def parse_lore_add(rest: str) -> tuple[str, str, str | None] | None:
 def _lore_meta_line(row) -> str:
     """Story when-stamp (if any) plus typed-at wall clock and author."""
     stamp = (row["when_label"] or "").strip()
-    typed = row["created_at"] or ""
+    typed = fmt.typed_unix_display(row["created_at"] or "")
     author = row["author"] or "builder"
     if stamp:
-        return f"{stamp}  ·  typed {typed}  ·  {author}"
-    return f"typed {typed}  ·  {author}"
+        return f"{stamp}  ·  {typed}  ·  {author}"
+    return f"{typed}  ·  {author}"
 
 
 def _record_subject_history(
