@@ -26,6 +26,19 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIn("you remember", r.message)
         self.assertIn("CYCʞ-0", r.message)
 
+    def test_only_self_concept_in_ven_table(self) -> None:
+        rows = self.world.conn.execute(
+            "SELECT name, kind FROM vens ORDER BY name"
+        ).fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "SELF")
+        self.assertEqual(rows[0]["kind"], "concept")
+        # no place/realm/timeline instances required
+        n_inst = self.world.conn.execute(
+            "SELECT COUNT(*) AS c FROM instances"
+        ).fetchone()["c"]
+        self.assertEqual(n_inst, 1)
+
     def test_node_plus_and_splice_path(self) -> None:
         dispatch(self.world, "node +")
         st = cycle_mod.load_state(self.world)

@@ -62,4 +62,6 @@ Stored as lore rows; in mentalor voice they print as **considerations**.
 
 ## Seed
 
-`--seed mentalor` (default): silent engine situate layers (Unspoken / Before Days), place remembrance surface, player **SELF**, Cycle ʞ node 0 titled *the pressure of something*.
+`--seed mentalor` (default): **only one VEN** — **SELF** as kind **`concept`** (root of all concepts). No place, realm, timeline, or type furniture in the DB. Remember surface = SELF instance + Cycle ʞ nodes. Title starts as *the pressure of something*.
+
+Types are taught later (mentor workshop is merged as hidden code: `miwbs.mentor` / `mentor_workshop`). Primes may later *become* types — not pre-seeded Earth roots.
