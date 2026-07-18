@@ -60,13 +60,15 @@ class ClearCommandTests(unittest.TestCase):
         self.assertFalse(r.clear_log)
 
     def test_help_clear_resolves(self) -> None:
+        # Topic index still knows clear; in-game help is a soft first-verbs sheet
         self.assertEqual(resolve_topic("clear"), "clear")
         self.assertEqual(resolve_topic("clr"), "clear")
-        r = dispatch(self.world, "help clear")
+        r = dispatch(self.world, "help")
         self.assertTrue(r.ok)
         text = plain(r.message).lower()
+        self.assertIn("first verbs", text)
         self.assertIn("clear", text)
-        self.assertIn("go", text)
+        self.assertIn("remember", text)
 
 
 class ClearCliWiringTests(unittest.TestCase):

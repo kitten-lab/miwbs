@@ -194,9 +194,11 @@ def dispatch(world: World, line: str) -> CommandResult:
             return CommandResult(True, _undo(world))
         if cmd == "kinds":
             return CommandResult(True, fmt.hint("VEN kinds: " + ", ".join(KINDS)))
+        # Narrative refuse — not "Unknown command" tool voice
+        word = cmd if cmd else "that"
         return CommandResult(
             False,
-            fmt.err(f"Unknown command {cmd!r}.") + "  " + fmt.hint("Type help."),
+            fmt.err(f"{word} isn't real. Perhaps you made it up?"),
         )
     except Exception as e:  # noqa: BLE001 — surface to player
         return CommandResult(False, fmt.err(str(e)))
@@ -2887,10 +2889,24 @@ def _dialogs_rename(world: World, rest: str) -> str:
 
 
 def _help(arg: str) -> str:
-    term = arg.strip()
-    if not term:
-        return render_help_index()
-    return render_help_topic(term)
+    """
+    Inline soft sheet only — first verbs for mentalor / Day of Days.
+
+    No long manuals, no siderail index, no usage novels.
+    """
+    _ = (arg or "").strip()  # bare help / help <anything> → same soft sheet
+    return fmt.join_blocks(
+        f"[bold]{fmt.safe('first verbs')}[/bold]  [dim]·[/dim]  soft reminders",
+        fmt.hint("remember · look — what you hold of this place"),
+        fmt.hint("@desc · @desc <<studio — sculpt this beat"),
+        fmt.hint("consider SELF | … · consider ECHO | … — think back to yourself"),
+        fmt.hint("cycle · cycle ʞ · cycle 0 — Day of Days / numbered days"),
+        fmt.hint("node + · + · node next · node prev · node list"),
+        fmt.hint("rename — the name you remember here"),
+        fmt.hint("clear · quit"),
+        fmt.hint("the rest of the machine is still there — reach it when the story needs a joint"),
+        gap=0,
+    )
 
 
 def _candidate_detail(

@@ -13,7 +13,6 @@ from rich.rule import Rule
 from . import PRODUCT_LONG, PRODUCT_NAME, format as fmt
 from .commands import dispatch
 from .db import connect, get_meta, init_schema, migrate_schema
-from .help_ui import HelpPane
 from .history import CommandHistory
 from .seed import seed_world
 from .status import format_strip
@@ -492,7 +491,7 @@ def run_repl(world: World, world_path: Path) -> None:
 def run_textual(world: World, world_path: Path) -> None:
     from textual.app import App, ComposeResult
     from textual.binding import Binding
-    from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.containers import Horizontal
     from textual.widgets import Footer, Input, RichLog, Static
 
     from .book_ui import make_book_reader_screen
@@ -534,7 +533,7 @@ def run_textual(world: World, world_path: Path) -> None:
             if is_openable_url(u):
                 self.open_url(u)
 
-        # Sharp/dark chrome: solid borders, near-black panels, wider help rail
+        # Sharp/dark chrome — log only (no help siderail)
         CSS = f"""
         Screen {{
             background: {TUI_BG};
@@ -552,40 +551,6 @@ def run_textual(world: World, world_path: Path) -> None:
             color: #e8e8ec;
             scrollbar-background: {TUI_BG};
             scrollbar-color: {TUI_BORDER};
-        }}
-        #help-pane {{
-            width: {TUI_HELP_PANE_WIDTH};
-            min-width: {TUI_HELP_PANE_MIN_WIDTH};
-            max-width: {TUI_HELP_PANE_MAX_WIDTH};
-            height: 1fr;
-            border: solid {TUI_BORDER_ACCENT};
-            padding: 1 2;
-            background: {TUI_PANEL};
-            color: #e8e8ec;
-            scrollbar-background: {TUI_BG};
-            scrollbar-color: {TUI_BORDER};
-        }}
-        #help-pane.help-hidden {{
-            display: none;
-            width: 0;
-            min-width: 0;
-            max-width: 0;
-            padding: 0;
-            border: none;
-        }}
-        #help-pane-title {{
-            padding-bottom: 1;
-            height: auto;
-            border-bottom: solid {TUI_BORDER};
-            margin-bottom: 1;
-        }}
-        #help-pane-scroll {{
-            height: 1fr;
-            background: {TUI_PANEL};
-        }}
-        #help-pane-body {{
-            height: auto;
-            background: {TUI_PANEL};
         }}
         #cmd {{
             dock: bottom;
@@ -632,12 +597,11 @@ def run_textual(world: World, world_path: Path) -> None:
         """
         BINDINGS = [
             Binding("ctrl+c", "quit", "Quit"),
-            Binding("f1", "toggle_help", "Help"),
+            Binding("f1", "inline_help", "Help"),
         ]
 
         def __init__(self) -> None:
             super().__init__()
-            self.help_pane = HelpPane(open=False)
             self._turn = 0
             self._open_book_id: str | None = None
             self._open_wiki: tuple[str, bool] | None = None
@@ -655,15 +619,6 @@ def run_textual(world: World, world_path: Path) -> None:
                     wrap=True,
                     auto_scroll=True,
                 )
-                with Vertical(id="help-pane", classes="help-hidden"):
-                    yield Static(
-                        f"[bold {fmt.ACCENT}]help[/bold {fmt.ACCENT}]  "
-                        f"[dim]numbers open topics · 0 index · help/? close[/dim]",
-                        id="help-pane-title",
-                        markup=True,
-                    )
-                    with VerticalScroll(id="help-pane-scroll"):
-                        yield Static(id="help-pane-body", markup=True)
             yield HistoryInput(
                 placeholder="",
                 id="cmd",
@@ -675,7 +630,6 @@ def run_textual(world: World, world_path: Path) -> None:
             self.title = PRODUCT_LONG
             self.sub_title = ""
             self._refresh_studio_header()
-            self._refresh_help_pane()
             # Same as clear: empty log — no tips banner, no auto-look
             log = self.query_one("#log", RichLog)
             self._clear_world_log(log)
@@ -713,11 +667,6 @@ def run_textual(world: World, world_path: Path) -> None:
                 loc_name = display_name(loc.name) if loc else "—"
                 right.update(f"[dim]@[/dim] {fmt.safe(loc_name)}")
 
-        def _close_help_only(self) -> None:
-            if self.help_pane.open:
-                self.help_pane.open = False
-                self._refresh_help_pane()
-
         def _book_reader_is_top(self) -> bool:
             """True when a soft reader (folio or wiki) is the top modal."""
             scr = self.screen
@@ -741,27 +690,8 @@ def run_textual(world: World, world_path: Path) -> None:
             if self._book_reader_is_top():
                 self.pop_screen()
 
-        def _refresh_help_pane(self) -> None:
-            pane = self.query_one("#help-pane", Vertical)
-            body = self.query_one("#help-pane-body", Static)
-            if self.help_pane.open:
-                # Mutual exclusion: help closes the soft reader
-                if (
-                    self._open_book_id is not None
-                    or self._open_wiki is not None
-                    or self._book_reader_is_top()
-                ):
-                    self._close_book_reader()
-                pane.remove_class("help-hidden")
-                body.update(self.help_pane.body())
-            else:
-                pane.add_class("help-hidden")
-                body.update("")
-
         def _open_book_reader(self, book_instance_id: str) -> None:
-            """Push soft full-width book reader (replaces prior side rail)."""
-            self._close_help_only()
-            # One soft reader at a time
+            """Push soft full-width book reader."""
             if self._book_reader_is_top():
                 self.pop_screen()
             self._open_wiki = None
@@ -779,7 +709,6 @@ def run_textual(world: World, world_path: Path) -> None:
 
         def _open_wiki_reader(self, label: str, *, deep: bool = False) -> None:
             """Push soft full-width wiki dossier (same frame language as folio)."""
-            self._close_help_only()
             if self._book_reader_is_top():
                 self.pop_screen()
             self._open_book_id = None
@@ -795,10 +724,11 @@ def run_textual(world: World, world_path: Path) -> None:
 
             self.push_screen(screen, _on_wiki_closed)
 
-        def action_toggle_help(self) -> None:
-            route = self.help_pane.handle_line("help")
-            if route.refresh_help:
-                self._refresh_help_pane()
+        def action_inline_help(self) -> None:
+            """F1 — same soft sheet as `help`, printed in the world log."""
+            log = self.query_one("#log", RichLog)
+            result = dispatch(world, "help")
+            self._write_world_turn(log, "help", result.message or None)
 
         def _clear_world_log(self, log: RichLog) -> None:
             """Wipe transcript only — no tips banner (clr wants a blank log)."""
@@ -854,7 +784,6 @@ def run_textual(world: World, world_path: Path) -> None:
                 cmd.cmd_history.push(line)
                 # Soft modal over the log (same frame language as folio reader).
                 # One full turn is emitted when the editor closes — save or cancel.
-                self._close_help_only()
                 if self._book_reader_is_top() or self._studio_writer_is_top():
                     self.pop_screen()
                 initial = seed_initial_body(world, ml)
@@ -904,21 +833,12 @@ def run_textual(world: World, world_path: Path) -> None:
 
             cmd.cmd_history.push(line)
 
-            # Single help surface: open/nav stays out of the world log
-            route = self.help_pane.handle_line(line)
-            if route.handled:
-                if route.refresh_help:
-                    self._refresh_help_pane()
-                # Intentionally do not write help bodies (or even short notes) to #log
-                return
-
-            world_line = route.world_line or line
-            result = dispatch(world, world_line)
-            # Short note when opening soft reader (full page lives in the modal)
+            # Help prints inline in the log (no siderail)
+            result = dispatch(world, line)
             if result.open_book_id:
                 self._write_world_turn(
                     log,
-                    world_line,
+                    line,
                     fmt.hint(
                         "Book open  ·  ←/→ leaves  ·  + add  ·  e edit  ·  Esc close"
                     ),
@@ -929,7 +849,7 @@ def run_textual(world: World, world_path: Path) -> None:
                 q, deep = result.open_wiki
                 self._write_world_turn(
                     log,
-                    world_line,
+                    line,
                     fmt.hint(
                         "Wiki open  ·  scroll  ·  Esc close"
                         + ("  ·  deep" if deep else "")
@@ -940,7 +860,7 @@ def run_textual(world: World, world_path: Path) -> None:
             else:
                 self._write_world_turn(
                     log,
-                    world_line,
+                    line,
                     result.message or None,
                     clear_log=result.clear_log,
                 )

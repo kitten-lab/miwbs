@@ -285,11 +285,29 @@ def hint(text: str) -> str:
 
 
 def ok(msg: str) -> str:
-    return f"[{OK}]{safe(msg)}[/{OK}]"
+    """Soft success — less shouty than prolog SUCCESS, still green."""
+    return f"[bold green] SUCCESS [/bold green] [{OK}]{safe(msg)}[/{OK}]"
 
 
 def err(msg: str) -> str:
-    return f"[{ERR}]{safe(msg)}[/{ERR}]"
+    """
+    Terminal-prolog-shaped fault line::
+
+        ERR-808  that word has no weight here yet.
+
+    Red badge + red body. No compiler voice.
+    """
+    return f"[bold white on red] ERR-808 [/bold white on red] [{ERR}]{safe(msg)}[/{ERR}]"
+
+
+def warn(msg: str) -> str:
+    """Prolog-adjacent warning chrome."""
+    return f"[bold bright_blue] WARNING [/bold bright_blue] {safe(msg)}"
+
+
+def echo_line(msg: str) -> str:
+    """ECHO mouth (red tag) — soft backflow, not always a hard fail."""
+    return f"[bold red] E C H O [/bold red]  {safe(msg)}"
 
 
 def join_blocks(*blocks: str | None, gap: int = 1) -> str:
