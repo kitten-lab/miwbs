@@ -24,6 +24,57 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _repair_zero_point_codes(conn: sqlite3.Connection) -> None:
+    """
+    Mentalor zero-point: untyped SELF code is literally ``0``, ECHO is ``1``.
+
+    Older migrations treated bare integers as missing codes (``parse_ven_code``
+    only knows XXX-NNN) and rewrote them to OTH-001 / OTH-002. Restore.
+    """
+    import re as _re
+
+    for want_name, want_code in (("SELF", "0"), ("ECHO", "1")):
+        row = conn.execute(
+            """
+            SELECT id, code, kind, name, slug FROM vens
+            WHERE upper(trim(name)) = ? OR upper(trim(slug)) = ?
+            ORDER BY created_at, id LIMIT 1
+            """,
+            (want_name, want_name),
+        ).fetchone()
+        if row is None:
+            continue
+        if (row["kind"] or "").strip():
+            continue  # typed primes keep kind codes
+        cur = (row["code"] or "").strip()
+        if cur == want_code:
+            continue
+        # Free want_code if another row holds it
+        holder = conn.execute(
+            "SELECT id FROM vens WHERE code = ? AND id != ?",
+            (want_code, row["id"]),
+        ).fetchone()
+        if holder is not None:
+            # Park the holder on next free bare int (or next OTH if typed later)
+            taken = {
+                (r["code"] or "").strip()
+                for r in conn.execute(
+                    "SELECT code FROM vens WHERE code IS NOT NULL AND code != ''"
+                ).fetchall()
+            }
+            n = 2
+            while str(n) in taken or str(n) == want_code:
+                n += 1
+            conn.execute(
+                "UPDATE vens SET code = ? WHERE id = ?",
+                (str(n), holder["id"]),
+            )
+        conn.execute(
+            "UPDATE vens SET code = ? WHERE id = ?",
+            (want_code, row["id"]),
+        )
+
+
 def migrate_schema(conn: sqlite3.Connection) -> None:
     """Idempotent additive migrations for older world.db files."""
     cols = {
@@ -45,29 +96,46 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
     if cols or "code" in {
         row[1] for row in conn.execute("PRAGMA table_info(vens)").fetchall()
     }:
+        import re as _re
+
         from .ids import format_ven_code, kind_code_prefix, parse_ven_code
 
         rows = conn.execute(
-            "SELECT id, kind, code FROM vens ORDER BY kind, created_at, id"
+            "SELECT id, name, kind, code FROM vens ORDER BY kind, created_at, id"
         ).fetchall()
-        # Track max seq per prefix from existing codes, then fill gaps
+        # Track max seq per prefix from existing XXX-NNN codes, then fill gaps
         max_by_prefix: dict[str, int] = {}
+        max_bare = -1  # untyped bare integer codes 0, 1, 2, …
         for r in rows:
-            existing = parse_ven_code(r["code"] or "")
+            c = (r["code"] or "").strip()
+            existing = parse_ven_code(c)
             if existing:
                 pref, _, num = existing.partition("-")
                 try:
                     max_by_prefix[pref] = max(max_by_prefix.get(pref, 0), int(num))
                 except ValueError:
                     pass
+            elif _re.fullmatch(r"\d+", c):
+                max_bare = max(max_bare, int(c))
         for r in rows:
-            if parse_ven_code(r["code"] or ""):
+            c = (r["code"] or "").strip()
+            # Keep compact XXX-NNN *and* bare untyped integers (SELF=0, ECHO=1)
+            if parse_ven_code(c) or _re.fullmatch(r"\d+", c):
                 continue
-            pref = kind_code_prefix(r["kind"] or "other")
-            n = max_by_prefix.get(pref, 0) + 1
-            max_by_prefix[pref] = n
-            code = format_ven_code(pref, n)
+            kind = (r["kind"] or "").strip()
+            if not kind:
+                # Untyped prime without a code yet — bare next int, never OTH-
+                max_bare += 1
+                code = str(max_bare)
+            else:
+                pref = kind_code_prefix(kind)
+                n = max_by_prefix.get(pref, 0) + 1
+                max_by_prefix[pref] = n
+                code = format_ven_code(pref, n)
             conn.execute("UPDATE vens SET code = ? WHERE id = ?", (code, r["id"]))
+        # Repair: mentalor SELF/ECHO must stay codes 0 and 1 (migration used to
+        # rewrite bare 0/1 → OTH-00N because parse_ven_code rejects bare ints).
+        _repair_zero_point_codes(conn)
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_vens_code ON vens(code)"
         )

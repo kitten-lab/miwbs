@@ -322,9 +322,14 @@ def format_instance_short_ref(
         s = str(n).strip()
         dig = digits_from_short_ref(s)
         digits = dig if dig else format_instance_ref(1)
+    # Compact XXX-NNN codes (THG-001-0001)
     code = parse_ven_code(ven_code) if ven_code else None
     if code:
         return f"{code}-{digits}"
+    # Untyped bare integer codes (SELF=0, ECHO=1) — whole code is the digit
+    bare = (ven_code or "").strip()
+    if re.fullmatch(r"\d+", bare):
+        return f"{bare}-{digits}"
     base = cute_name(slug) if slug else "ITEM"
     return f"{base}-{digits}"
 

@@ -35,14 +35,39 @@ class MentalorCycleTests(unittest.TestCase):
         ).fetchall()
         self.assertEqual(len(rows), 2)
         by_code = {r["code"]: r for r in rows}
+        # Whole VEN code is bare "0" / "1" — not OTH-001, not SELF-0001
         self.assertEqual(by_code["0"]["name"], "SELF")
         self.assertEqual((by_code["0"]["kind"] or "").strip(), "")
+        self.assertEqual(by_code["0"]["code"], "0")
         self.assertEqual(by_code["1"]["name"], "ECHO")
         self.assertEqual((by_code["1"]["kind"] or "").strip(), "")
+        self.assertEqual(by_code["1"]["code"], "1")
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
         self.assertEqual(n_inst, 2)
+
+    def test_migration_restores_bare_zero_point_codes(self) -> None:
+        """OTH-00N rewrite of 0/1 is repaired on migrate."""
+        from miwbs.db import migrate_schema
+
+        self.world.conn.execute(
+            "UPDATE vens SET code = ? WHERE upper(name) = ?",
+            ("OTH-001", "SELF"),
+        )
+        self.world.conn.execute(
+            "UPDATE vens SET code = ? WHERE upper(name) = ?",
+            ("OTH-002", "ECHO"),
+        )
+        self.world.conn.commit()
+        migrate_schema(self.world.conn)
+        self.world.conn.commit()
+        by_name = {
+            r["name"]: r["code"]
+            for r in self.world.conn.execute("SELECT name, code FROM vens")
+        }
+        self.assertEqual(by_name["SELF"], "0")
+        self.assertEqual(by_name["ECHO"], "1")
 
     def test_consider_starts_echo_dialog(self) -> None:
         from miwbs.format import plain
