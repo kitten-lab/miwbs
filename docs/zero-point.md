@@ -160,11 +160,24 @@ No automatic merge. Attach is manual, intentional, word-driven.
 
 ---
 
+## Implemented now (mentalor-ʞ-7)
+
+- **Seed:** HERENOW only (untyped). No SELF/ECHO cast. Empty workshop.  
+- **Allowlist:** `consider` (+ clear / quit / help).  
+- **consider** → one **crate** + **TPS** shelf; writer NULL; face prints ECHO + HISTORIES STORED.  
+- Flags: `-t` title · `-d` detail · `-u` event unix (INGEST always wall now).  
+- Soft cycle ʞ node still in meta (time pretend-off).  
+
+### Not yet
+
+- `@desc` / rename / node face / studio openers on allowlist  
+- Minter / create / spawn  
+- Super-crate graph, multi-subject crates, TPS search face  
+- `<<studio` on consider (next thin slice)
+
 ## Next engineering steps (when you say go)
 
-1. **Allowlist** mentalor dispatch to kernel verbs only.  
-2. **Seed** strict empty: untyped surface + 0/1 + empty workshop (no pre-taught `where`).  
-3. **Rename lore voice** → considerations / thoughts on the face.  
-4. **Attach pipeline** doc + one example attach (e.g. first mint → create/spawn only).  
-
-Until then: this file is the north star when either of us reaches for “just enable history real quick.”
+1. Open `@desc` + rename herenow (still no cast).  
+2. Studio `<<` for consider.  
+3. List/search crates by TPS.  
+4. First attach only when you mint a word.

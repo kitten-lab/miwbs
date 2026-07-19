@@ -36,22 +36,22 @@ def seed_world(conn: sqlite3.Connection, flavor: str = "mentalor") -> None:
 
 def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     """
-    Day of Days (Cycle ʞ): zero point.
+    Day of Days — strict zero (kernel).
 
-    - **where** is the first taught type; first room is a where (not SELF).
-    - SELF (code 0) and ECHO (code 1) are untyped — Thinker and backflow.
-    - SELF stands *in* the where; rename here ≠ rename me.
-    - ``consider`` talks with ECHO. Remember surface = the where + Cycle nodes.
+    - **HERENOW** only: one untyped surface (no SELF, no ECHO, no taught types).
+    - Writer is NULL. One soft time node (cycle ʞ / path 0) under the table.
+    - First face verb: **consider** → crate + TPS chronicle.
+    - Minter / where / create: later attach.
     """
+    from . import chronicle as chronicle_mod
     from . import cycle as cycle_mod
     from . import mentor as mentor_mod
 
     init_schema(conn)
     w = World(conn)
 
-    # Mode + first type before any typed prime
     cycle_mod.set_mentalor_mode(w, True)
-    # Fresh workshop file per world (do not inherit sticky ~/.aidm types)
+    # Fresh empty workshop (no pre-taught types)
     import uuid
 
     from .mentor import META_WORKSHOP_PATH, _workshop_root
@@ -61,46 +61,26 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
         META_WORKSHOP_PATH,
         str(_workshop_root() / f"{uuid.uuid4().hex}.workshop.json"),
     )
-    mentor_mod.bootstrap_world_workshop(w, initial_types=("where",))
+    mentor_mod.bootstrap_world_workshop(w, initial_types=())
 
-    # First where — the room / stage (engine kind: place via alias)
-    where_ven = w.create_ven(
-        "HERE",
-        "where",
-        "The first where — stage before form. You stand in it; you are not it.",
-    )
-    where_inst = w.instantiate(where_ven)
-    w.set_name_override(where_inst, "the pressure of something")
-    w.set_description(where_inst, "")
-
-    # Untyped zero-point Thinker (not the room)
-    self_ven = w.create_ven(
-        "SELF",
-        "",  # no type
-        "The Thinker at zero — before type, before Concept, before form.",
-        code="0",
-    )
-    self_inst = w.instantiate(self_ven)
-    w.set_player(self_inst)
-    w.put_in(self_inst, where_inst, slot="interior")
-
-    # Untyped backflow — dialog partner for consider
-    echo_ven = w.create_ven(
-        "ECHO",
+    # HERENOW — the only being; untyped; not a "where" type yet
+    hn_ven = w.create_ven(
+        "HERENOW",
         "",
-        "The Thinker's other mouth — pressure answering pressure.",
-        code="1",
+        "The first sense of herenow — space before cast, before type.",
     )
-    echo_inst = w.instantiate(echo_ven)
-    set_meta(conn, "echo_instance_id", echo_inst)
-    # Echo shares the room so it is "here" for consider, not the room itself
-    w.put_in(echo_inst, where_inst, slot="interior")
+    hn_inst = w.instantiate(hn_ven)
+    w.set_name_override(hn_inst, "the pressure of something")
+    w.set_description(hn_inst, "")
+    chronicle_mod.set_herenow_id(w, hn_inst)
+    # Soft player handle so remember_surface / location paths find HERENOW
+    # (face: no SELF — you write the space; engine needs a token)
+    w.set_player(hn_inst)
 
     set_meta(conn, "world_name", "Day of Days")
-    set_meta(conn, "seed_version", "mentalor-ʞ-6")
+    set_meta(conn, "seed_version", "mentalor-ʞ-7")
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)
-    # Node title/body land on the where, not on SELF
     cycle_mod.apply_node_to_surface(
         w, cycle_mod.ensure_current(st), cycle_mod.current_face(st)
     )

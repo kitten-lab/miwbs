@@ -71,6 +71,23 @@ DESC_COMMIT_FLAG_ALIASES: dict[str, str] = {
     "w": "when",
 }
 
+# consider: -t title, -d detail/body extra, -u event unix
+CONSIDER_FLAG_ALIASES: dict[str, str] = {
+    "title": "title",
+    "t": "title",
+    "desc": "detail",
+    "description": "detail",
+    "d": "detail",
+    "detail": "detail",
+    "body": "body",
+    "b": "body",
+    "u": "unix",
+    "unix": "unix",
+    "event": "unix",
+    "when": "unix",
+    "w": "unix",
+}
+
 # Lore create: -t is title (not create's type); -d/-b body; -a add
 LORE_FLAG_ALIASES: dict[str, str] = {
     "add": "add",
@@ -113,13 +130,24 @@ def parse_named_flags(
     except ValueError as e:
         return NamedFlags(error=f"Could not parse flags: {e}")
 
+    def is_flag_token(t: str) -> bool:
+        """True for --foo / -t; False for bare words and negative numbers (-100)."""
+        if not t.startswith("-") or t == "-":
+            return False
+        if t.startswith("--"):
+            return len(t) > 2
+        # -100000000 is a value, not a flag
+        if len(t) >= 2 and (t[1].isdigit() or (t[1] == "-" and len(t) > 2)):
+            return False
+        return len(t) >= 2 and t[1].isalpha()
+
     def take_value(start: int) -> tuple[str, int]:
         """Value runs until next flag token (so multi-word titles work)."""
         if start >= len(tokens):
             return "", start
         parts: list[str] = []
         j = start
-        while j < len(tokens) and not tokens[j].startswith("-"):
+        while j < len(tokens) and not is_flag_token(tokens[j]):
             parts.append(tokens[j])
             j += 1
         return " ".join(parts), j
@@ -144,7 +172,7 @@ def parse_named_flags(
             canon = table.get(body.lower())
             if not canon:
                 return NamedFlags(error=f"Unknown flag --{body}")
-            if i + 1 >= len(tokens) or tokens[i + 1].startswith("-"):
+            if i + 1 >= len(tokens) or is_flag_token(tokens[i + 1]):
                 if canon in bools:
                     flags[canon] = "1"
                     i += 1
@@ -153,13 +181,13 @@ def parse_named_flags(
             val, i = take_value(i + 1)
             flags[canon] = val
             continue
-        if tok.startswith("-") and len(tok) >= 2 and tok[1].isalpha():
+        if is_flag_token(tok) and tok.startswith("-") and not tok.startswith("--"):
             letters = tok[1:]
             if len(letters) == 1:
                 canon = table.get(letters.lower())
                 if not canon:
                     return NamedFlags(error=f"Unknown flag -{letters}")
-                if i + 1 >= len(tokens) or tokens[i + 1].startswith("-"):
+                if i + 1 >= len(tokens) or is_flag_token(tokens[i + 1]):
                     if canon in bools:
                         flags[canon] = "1"
                         i += 1

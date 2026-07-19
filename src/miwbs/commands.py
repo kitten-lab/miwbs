@@ -94,6 +94,37 @@ def dispatch(world: World, line: str) -> CommandResult:
     if cmd in _NODE_STREAM and not arg:
         return CommandResult(True, _node_cmd(world, _NODE_STREAM[cmd]))
 
+    # Strict zero (mentalor): only consider (+ quit/clear/help thin). Soft time later.
+    try:
+        from . import cycle as _cycle_gate
+
+        if _cycle_gate.is_mentalor(world):
+            _ZERO = frozenset(
+                {
+                    "quit",
+                    "exit",
+                    "q",
+                    "clear",
+                    "clr",
+                    "help",
+                    "?",
+                    "consider",
+                    "wonder",
+                }
+            )
+            if cmd not in _ZERO:
+                return CommandResult(
+                    True,
+                    fmt.hint(
+                        "Zero point — only consider is open.\n"
+                        "  consider <text>  ·  -t title  -d detail  -u unix\n"
+                        "  consider          ·  list\n"
+                        "  clear · quit · help"
+                    ),
+                )
+    except Exception:
+        pass
+
     try:
         if cmd in ("quit", "exit", "q"):
             return CommandResult(True, fmt.hint("Until the next shelf."), quit=True)
@@ -388,12 +419,18 @@ def _echo_instance(world: World):
 
 def _consider(world: World, arg: str) -> str:
     """
-    consider              — start SELF ↔ ECHO dialog (talk-style; /fin ends)
-    consider | <title>    — same, with title
-    consider note | body  — feed a lore consideration (no dialog)
-    consider note SELF|ECHO | body
+    Mentalor zero:
+      consider <text> [-t title] [-d detail] [-u unix]
+      consider                    — list stored considerations
+
+    Classic:
+      consider              — SELF ↔ ECHO dialog
+      consider note | body  — lore note path
     """
     from . import cycle as cycle_mod
+
+    if cycle_mod.is_mentalor(world):
+        return _consider_herenow(world, arg)
 
     if world.active_dialog is not None:
         return fmt.hint("Already in a dialog — finish with /fin first.")
@@ -419,11 +456,83 @@ def _consider(world: World, arg: str) -> str:
         except ValueError as e:
             return fmt.hint(str(e))
 
-    if cycle_mod.is_mentalor(world) and when_label is None:
-        st = cycle_mod.load_state(world)
-        when_label = cycle_mod.current_face(st)
-
     return _start_echo_dialog(world, title=title, when_label=when_label)
+
+
+def _consider_herenow(world: World, arg: str) -> str:
+    """
+    Zero-point single-note consider → crate + TPS.
+
+    consider I am somewhere
+    consider I am somewhere -t title -d more -u -100000000
+    """
+    from . import chronicle as ch
+    from .argflags import CONSIDER_FLAG_ALIASES, parse_named_flags
+
+    raw = (arg or "").strip()
+    if not raw:
+        crates = [
+            c for c in ch.load_crates(world) if c.kind == "consideration"
+        ]
+        if not crates:
+            return fmt.hint("No considerations yet.\n  consider <text>  ·  -t title  -d detail  -u unix")
+        lines = [fmt.section("Considerations")]
+        for c in crates:
+            head = (c.title or c.body or "—").strip()
+            if c.title and c.body:
+                head = f"{c.title}  ·  {c.body}"
+            lines.append(f"  {c.crate_uid}  ·  {ch.format_u(c.event_unix)}")
+            lines.append(f"    {fmt.hint(head[:120])}")
+        return "\n".join(lines)
+
+    # Strip legacy "note" prefix if someone types consider note …
+    low = raw.lower()
+    if low.startswith("note ") or low.startswith("note|") or low == "note":
+        raw = raw[4:].lstrip(" |") if low.startswith("note") else ""
+        if not raw.strip():
+            return _consider_herenow(world, "")
+
+    parsed = parse_named_flags(raw, aliases=CONSIDER_FLAG_ALIASES)
+    if parsed.error:
+        return fmt.hint(parsed.error)
+
+    title = parsed.get("title")
+    detail = parsed.get("detail")
+    body_flag = parsed.get("body")
+    unix_raw = parsed.get("unix")
+    body = " ".join(parsed.positionals).strip()
+    if body_flag and not body:
+        body = body_flag
+    elif body_flag and body:
+        body = f"{body} {body_flag}".strip()
+    if not body and detail and not title:
+        body = detail
+        detail = ""
+    if not body:
+        return fmt.hint(
+            "consider <text>  ·  -t title  -d detail  -u <unix>\n"
+            "  e.g. consider I am somewhere  ·  consider I am somewhere -u -100000000"
+        )
+
+    event_unix: int | None = None
+    if unix_raw:
+        try:
+            event_unix = int(str(unix_raw).strip().lstrip("uU"))
+        except ValueError:
+            return fmt.hint(f"Bad -u unix {unix_raw!r}  ·  use an integer (e.g. -u -100000000)")
+
+    crate = ch.append_consideration(
+        world,
+        body=body,
+        title=title,
+        detail=detail,
+        event_unix=event_unix,
+        writer=None,  # NULL at zero
+    )
+    # Face: ECHO line + histories block (soft white / dim later polish)
+    echo = ch.format_echo_considered(body)
+    hist = ch.format_histories_stored(crate)
+    return f"{echo}\n\n{hist}"
 
 
 def _consider_note(world: World, arg: str) -> str:

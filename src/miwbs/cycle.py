@@ -376,10 +376,17 @@ def remember_surface_id(world: World) -> str | None:
     """
     Instance that holds the remember title/body for the current beat.
 
-    Prefer player location (the where / place you stand in). Only if there
-    is no location yet fall back to SELF — Day of Days seeds a first where
-    so room and Thinker stay two instances.
+    Prefer explicit HERENOW meta (strict zero), then player location, then
+    player token (HERENOW may *be* the player handle with no cast).
     """
+    try:
+        from . import chronicle as chronicle_mod
+
+        hid = chronicle_mod.herenow_id(world)
+        if hid:
+            return hid
+    except Exception:
+        pass
     loc = world.player_location()
     if loc is not None:
         return loc.id
