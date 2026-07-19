@@ -71,21 +71,18 @@ DESC_COMMIT_FLAG_ALIASES: dict[str, str] = {
     "w": "when",
 }
 
-# consider: -t title, -d detail/body extra, -u event unix
+# consider (zero): one body + optional event time only
+# Body: positionals after the verb, or -d/--desc/--detail/--data
+# Event: -e / --event only (no -u/-w/--when sprawl)
 CONSIDER_FLAG_ALIASES: dict[str, str] = {
-    "title": "title",
-    "t": "title",
-    "desc": "detail",
-    "description": "detail",
-    "d": "detail",
-    "detail": "detail",
+    "d": "body",
+    "desc": "body",
+    "description": "body",
+    "detail": "body",
+    "data": "body",
     "body": "body",
-    "b": "body",
-    "u": "unix",
-    "unix": "unix",
-    "event": "unix",
-    "when": "unix",
-    "w": "unix",
+    "e": "event",
+    "event": "event",
 }
 
 # Lore create: -t is title (not create's type); -d/-b body; -a add

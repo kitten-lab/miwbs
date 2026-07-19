@@ -42,7 +42,7 @@ class ConsiderChronicleTests(unittest.TestCase):
         self.assertEqual(crates[0].event_unix, crates[0].ingest_unix)
 
     def test_consider_event_unix_flag(self) -> None:
-        r = dispatch(self.world, "consider I am somewhere -u -100000000")
+        r = dispatch(self.world, "consider I am somewhere -e -100000000")
         self.assertTrue(r.ok, msg=r.message)
         text = plain(r.message)
         self.assertIn("u-100000000", text)
@@ -57,16 +57,12 @@ class ConsiderChronicleTests(unittest.TestCase):
         r = dispatch(self.world, "look")
         self.assertIn("only consider", plain(r.message).lower())
 
-    def test_title_and_detail_flags(self) -> None:
-        r = dispatch(
-            self.world,
-            "consider the sky holds -t Opening -d a soft line",
-        )
+    def test_body_via_d_flag(self) -> None:
+        r = dispatch(self.world, "consider -d the sky holds")
         self.assertTrue(r.ok, msg=r.message)
         c = ch.load_crates(self.world)[0]
         self.assertEqual(c.body, "the sky holds")
-        self.assertEqual(c.title, "Opening")
-        self.assertEqual(c.detail, "a soft line")
+        self.assertEqual(c.title, "")
 
     def test_studio_opener_not_stored_as_body(self) -> None:
         from miwbs.multiline_open import (

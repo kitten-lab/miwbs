@@ -117,8 +117,8 @@ def dispatch(world: World, line: str) -> CommandResult:
                     True,
                     fmt.hint(
                         "Zero point — only consider is open.\n"
-                        "  consider <text>  ·  -t title  -d detail  -u unix\n"
-                        "  consider          ·  list\n"
+                        "  consider <text>  ·  -d <text>  ·  -e <unix>\n"
+                        "  consider <<studio  ·  consider  (list)\n"
                         "  clear · quit · help"
                     ),
                 )
@@ -463,8 +463,13 @@ def _consider_herenow(world: World, arg: str) -> str:
     """
     Zero-point single-note consider → crate + TPS.
 
-    consider I am somewhere
-    consider I am somewhere -t title -d more -u -100000000
+    Body is one field (positionals and/or -d/--desc/--detail/--data).
+    Event time: -e / --event only.
+
+      consider I am somewhere
+      consider -d I am somewhere
+      consider I am somewhere -e -100000000
+      consider <<studio
     """
     from . import chronicle as ch
     from .argflags import CONSIDER_FLAG_ALIASES, parse_named_flags
@@ -475,16 +480,16 @@ def _consider_herenow(world: World, arg: str) -> str:
             c for c in ch.load_crates(world) if c.kind == "consideration"
         ]
         if not crates:
-            return fmt.hint("No considerations yet.\n  consider <text>  ·  -t title  -d detail  -u unix")
-        # Face: soft-white "who considered" (blank who at zero) · body
-        #        dim crate · tps marks (no bare u-code on this list)
+            return fmt.hint(
+                "No considerations yet.\n"
+                "  consider <text>  ·  consider -d <text>  ·  -e <unix>\n"
+                "  consider <<studio"
+            )
+        # Face: ʞ considered: body · dim crate · tps
         sw = fmt.SOFT_WHITE
         lines: list[str] = []
         for c in crates:
             body = (c.body or "—").strip()
-            if c.title:
-                body = f"{c.title}  ·  {body}"
-            # Kras ʞ = zero-point self mark (no named Thinker yet)
             lines.append(
                 f"[{sw}]ʞ considered:  {fmt.safe(body)}[/{sw}]"
             )
@@ -504,22 +509,18 @@ def _consider_herenow(world: World, arg: str) -> str:
     if parsed.error:
         return fmt.hint(parsed.error)
 
-    title = parsed.get("title")
-    detail = parsed.get("detail")
     body_flag = parsed.get("body")
-    unix_raw = parsed.get("unix")
+    event_raw = parsed.get("event")
     body = " ".join(parsed.positionals).strip()
     if body_flag and not body:
         body = body_flag
     elif body_flag and body:
-        body = f"{body} {body_flag}".strip()
-    if not body and detail and not title:
-        body = detail
-        detail = ""
+        # Prefer explicit -d as the body when both present
+        body = body_flag.strip()
     if not body:
         return fmt.hint(
-            "consider <text>  ·  -t title  -d detail  -u <unix>\n"
-            "  e.g. consider I am somewhere  ·  consider I am somewhere -u -100000000\n"
+            "consider <text>  ·  consider -d <text>  ·  -e <unix>\n"
+            "  e.g. consider I am somewhere  ·  consider I am somewhere -e -100000000\n"
             "  studio: consider <<studio"
         )
     # Guard: heredoc openers must go through the editor, not the note store
@@ -527,21 +528,23 @@ def _consider_herenow(world: World, arg: str) -> str:
         return fmt.hint("Open studio with:  consider <<studio")
 
     event_unix: int | None = None
-    if unix_raw:
+    if event_raw:
         try:
-            event_unix = int(str(unix_raw).strip().lstrip("uU"))
+            event_unix = int(str(event_raw).strip().lstrip("uU"))
         except ValueError:
-            return fmt.hint(f"Bad -u unix {unix_raw!r}  ·  use an integer (e.g. -u -100000000)")
+            return fmt.hint(
+                f"Bad -e event unix {event_raw!r}  ·  "
+                f"use an integer (e.g. -e -100000000)"
+            )
 
     crate = ch.append_consideration(
         world,
         body=body,
-        title=title,
-        detail=detail,
+        title="",
+        detail="",
         event_unix=event_unix,
         writer=None,  # NULL at zero
     )
-    # Face: ECHO line + histories block (soft white / dim later polish)
     echo = ch.format_echo_considered(body)
     hist = ch.format_histories_stored(crate)
     return f"{echo}\n\n{hist}"

@@ -378,30 +378,24 @@ def _commit_consider(world, session: MultilineSession, body: str):
     if not body:
         return CommandResult(True, fmt.hint("Empty buffer; cancelled."))
 
-    title = ""
-    detail = ""
     event_unix: int | None = None
     rest = (session.consider_rest or "").strip()
     if rest:
         parsed = parse_named_flags(rest, aliases=CONSIDER_FLAG_ALIASES)
         if not parsed.error:
-            title = parsed.get("title")
-            detail = parsed.get("detail")
-            unix_raw = parsed.get("unix")
-            # leftover positionals as optional title if -t not set
-            if not title and parsed.positionals:
-                title = " ".join(parsed.positionals).strip()
-            if unix_raw:
+            event_raw = parsed.get("event")
+            # -d on the opener can seed body only if editor left empty (handled above)
+            if event_raw:
                 try:
-                    event_unix = int(str(unix_raw).strip().lstrip("uU"))
+                    event_unix = int(str(event_raw).strip().lstrip("uU"))
                 except ValueError:
                     pass
 
     crate = ch.append_consideration(
         world,
         body=body,
-        title=title,
-        detail=detail,
+        title="",
+        detail="",
         event_unix=event_unix,
         writer=None,
     )
