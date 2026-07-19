@@ -5606,14 +5606,20 @@ def _history(world: World, arg: str) -> str:
         event_raw = arg[6:].strip()
     event_code = parse_history_event_code(event_raw)
     def _access_for_instance(inst) -> str:
+        """Markup: soft ref + soft [] with yellow title inside."""
         ref = (world.short_ref_of(inst.id) or "").strip().lstrip("#") or "—"
         title = dname(inst.name)
-        return f"{ref} [{title}]"
+        sw = fmt.SOFT_WHITE
+        return (
+            f"[{sw}]{fmt.safe(ref)} [/{sw}]"
+            f"{fmt.skyline_bracket_pop(title)}"
+        )
 
     if event_code:
         rows = world.history_for_event(event_code)
+        sw = fmt.SOFT_WHITE
         return _format_entries(
-            f"EVENT {event_code}",
+            f"[{sw}]EVENT {fmt.safe(event_code)}[/{sw}]",
             rows,
             show_subject=True,
         )
@@ -5652,7 +5658,12 @@ def _history(world: World, arg: str) -> str:
         if not ven:
             return fmt.err(f"No VEN matching {target!r}.")
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"VEN {ven.slug} [{ven.name}]", rows)
+        sw = fmt.SOFT_WHITE
+        return _format_entries(
+            f"[{sw}]VEN {fmt.safe(ven.slug)} [/{sw}]"
+            f"{fmt.skyline_bracket_pop(ven.name)}",
+            rows,
+        )
 
     if low.startswith("on "):
         target = arg[3:].strip()
@@ -5669,7 +5680,12 @@ def _history(world: World, arg: str) -> str:
     ven = world.find_ven(arg)
     if ven is not None:
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"VEN {ven.slug} [{ven.name}]", rows)
+        sw = fmt.SOFT_WHITE
+        return _format_entries(
+            f"[{sw}]VEN {fmt.safe(ven.slug)} [/{sw}]"
+            f"{fmt.skyline_bracket_pop(ven.name)}",
+            rows,
+        )
     return fmt.err(
         f"No history subject matching {arg!r}.  "
         f"Try: history on <thing>  ·  history me  ·  history here  ·  "

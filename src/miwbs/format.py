@@ -339,6 +339,24 @@ def skyline_soft(body: str) -> str:
     )
 
 
+def skyline_bracket_pop(inner: str) -> str:
+    """
+    Soft-white brackets, skyline-yellow word inside::
+
+        [rename]   [the kras]
+
+    Brackets match surrounding soft text; only the interior is yellow.
+    """
+    y = "bright_yellow"
+    sw = SOFT_WHITE
+    # Escape opening [ so Rich does not treat it as a style tag
+    return (
+        f"[{sw}]\\[[/{sw}]"
+        f"[{y}]{safe(inner)}[/{y}]"
+        f"[{sw}]][/{sw}]"
+    )
+
+
 def skyline_history_entry(
     *,
     event_code: str,
@@ -353,21 +371,18 @@ def skyline_history_entry(
             NOTATION: old → new
             TIMEMARK: CYC ʞ · u1784435327
 
-    ``>`` and the verb in ``[]`` are skyline yellow; NOTATION/TIMEMARK
-    labels soft-white, bodies dim. Nested fields align under HST-…
+    ``>`` yellow; ``[verb]`` soft brackets + yellow interior;
+    NOTATION/TIMEMARK labels soft-white, bodies dim.
     """
     code = (event_code or "—").strip() or "—"
     v = (verb or "record").strip() or "record"
     note = (notation or "").strip() or "—"
     when = (timemark or "").strip() or "—"
     y = "bright_yellow"
-    # two spaces, yellow >, soft code + label, yellow [verb]
-    # Escape opening [ so Rich does not treat [rename] as a style tag
-    verb_pop = f"[{y}]\\[{safe(v)}][/{y}]"
     head = (
         f"  [{y}]>[/{y}] "
         f"[{SOFT_WHITE}]{safe(code)} HISTORY TYPE: [/{SOFT_WHITE}]"
-        f"{verb_pop}"
+        f"{skyline_bracket_pop(v)}"
     )
     # four spaces — under the HST code (after ``> ``)
     note_line = (
@@ -392,8 +407,15 @@ def skyline_history_report(
 
           > HST-001 …
         SKYLINE  RECORDS RECEIVED. END OF REPORT.
+
+    *access_for* is pre-built markup (ref + soft/yellow bracket pop),
+    not plain text — see callers / :func:`skyline_bracket_pop`.
     """
-    head = skyline_soft(f"ACCESS HISTORY FOR {access_for}")
+    head = (
+        f"[bright_yellow] SKYLINE [/bright_yellow] "
+        f"[{SOFT_WHITE}]ACCESS HISTORY FOR [/{SOFT_WHITE}]"
+        f"{access_for}"
+    )
     if not entry_blocks:
         return join_blocks(
             head,
