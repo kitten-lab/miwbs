@@ -31,21 +31,43 @@ class MentalorCycleTests(unittest.TestCase):
 
     def test_self_and_echo_untyped(self) -> None:
         rows = self.world.conn.execute(
-            "SELECT name, kind, code FROM vens ORDER BY code"
+            "SELECT name, kind, code FROM vens"
         ).fetchall()
-        self.assertEqual(len(rows), 2)
-        by_code = {r["code"]: r for r in rows}
+        by_name = {r["name"]: r for r in rows}
         # Whole VEN code is bare "0" / "1" — not OTH-001, not SELF-0001
-        self.assertEqual(by_code["0"]["name"], "SELF")
-        self.assertEqual((by_code["0"]["kind"] or "").strip(), "")
-        self.assertEqual(by_code["0"]["code"], "0")
-        self.assertEqual(by_code["1"]["name"], "ECHO")
-        self.assertEqual((by_code["1"]["kind"] or "").strip(), "")
-        self.assertEqual(by_code["1"]["code"], "1")
+        self.assertEqual(by_name["SELF"]["code"], "0")
+        self.assertEqual((by_name["SELF"]["kind"] or "").strip(), "")
+        self.assertEqual(by_name["ECHO"]["code"], "1")
+        self.assertEqual((by_name["ECHO"]["kind"] or "").strip(), "")
+        # First where exists (engine kind place)
+        self.assertIn("HERE", by_name)
+        self.assertEqual((by_name["HERE"]["kind"] or "").strip(), "place")
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
-        self.assertEqual(n_inst, 2)
+        self.assertEqual(n_inst, 3)
+
+    def test_self_is_not_the_room(self) -> None:
+        """SELF stands in the first where; rename here ≠ rename me."""
+        loc = self.world.player_location()
+        pid = self.world.player_id()
+        self.assertIsNotNone(loc)
+        self.assertIsNotNone(pid)
+        self.assertNotEqual(loc.id, pid)
+        self.assertEqual(loc.ven_kind, "place")
+        # Room holds pressure title; SELF prime name stays SELF
+        self.assertIn("pressure", (loc.name or "").lower())
+        me = self.world.get_instance(pid)
+        assert me is not None
+        self.assertEqual(me.name, "SELF")
+        dispatch(self.world, "rename me as Thinker")
+        dispatch(self.world, "rename here as the void stage")
+        me2 = self.world.get_instance(pid)
+        loc2 = self.world.player_location()
+        assert me2 is not None and loc2 is not None
+        self.assertEqual(me2.name, "Thinker")
+        self.assertEqual(loc2.name, "the void stage")
+        self.assertNotEqual(me2.name, loc2.name)
 
     def test_migration_restores_bare_zero_point_codes(self) -> None:
         """OTH-00N rewrite of 0/1 is repaired on migrate."""
@@ -84,15 +106,21 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIsNone(self.world.active_dialog)
         self.assertIn("ended", plain(end.message).lower())
 
-    def test_zero_point_no_types_until_taught(self) -> None:
+    def test_zero_point_only_where_taught(self) -> None:
         from miwbs import mentor
         from miwbs.format import plain
 
-        self.assertEqual(mentor.allowed_kinds(self.world), frozenset())
+        allowed = mentor.allowed_kinds(self.world)
+        self.assertIn("where", allowed)
+        self.assertIn("place", allowed)  # alias
+        self.assertNotIn("person", allowed)
         r = dispatch(self.world, "create person Bob | a guy")
         self.assertIn("not taught", plain(r.message).lower())
         r2 = dispatch(self.world, "create concept Wonder | a sense of wonder")
         self.assertIn("not taught", plain(r2.message).lower())
+        # where already taught — can form another where
+        r_where = dispatch(self.world, "create where Quiet Nook | a corner")
+        self.assertNotIn("not taught", plain(r_where.message).lower())
         # teach concept, then create works
         ws = mentor.workshop_for(self.world)
         ws.mint_type("concept", "the sense of Concept")

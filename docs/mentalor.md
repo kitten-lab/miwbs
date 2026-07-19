@@ -46,7 +46,7 @@ Do **not** grow a permanent separate `@n` cosmology.
 | `node list` | Paths on this cycle |
 | `node insert` | Splice between previous and current |
 | `@desc` / `@desc <<studio` | Sculpt current node body (via place surface) |
-| `rename` | Remembered title for this node |
+| `rename` | Room title (`rename here`) or Thinker (`rename me`) — two instances |
 | `consider SELF \| …` | Thinker line |
 | `consider ECHO \| …` | Self answering self |
 | `consider` / `lore` | List considerations |
@@ -84,4 +84,4 @@ ws.mint_type("concept", "the sense of Concept")   # type emerges
 # later: mint_type("place", …) → create place …
 ```
 
-Remember surface = SELF instance + Cycle ʞ nodes.
+Remember surface = first **where** (room) + Cycle ʞ nodes. SELF (0) stands in it; ECHO (1) shares it.

@@ -70,13 +70,13 @@ def workshop_for(world: World) -> Workshop:
 
 def bootstrap_world_workshop(
     world: World,
-    initial_types: tuple[str, ...] = ("concept",),
+    initial_types: tuple[str, ...] = ("where",),
 ) -> Workshop:
     """
-    Ensure mentor workshop exists with only the given types (default: concept).
+    Ensure mentor workshop exists with the given types.
 
-    Does not install person/place/thing — those must be minted when thinking
-    produces them.
+    Day of Days default: **where** only — first floor of being (the room).
+    person/thing/etc. are minted later when thinking produces them.
     """
     ws = workshop_for(world)
     # Fresh workshop still empty of types after Workshop.__init__
@@ -85,6 +85,14 @@ def bootstrap_world_workshop(
         if not key or key in ws.types:
             continue
         desc = {
+            "where": (
+                "The sense of Where — location, stage, room. "
+                "First taught type: you stand in a where; you are not the where."
+            ),
+            "place": (
+                "The sense of Where (place) — location, stage, room. "
+                "First taught type: you stand in a where; you are not the where."
+            ),
             "concept": (
                 "The sense of Concept — root type. Primes of this kind "
                 "(SELF, Concept) stand before person/place/thing."
@@ -101,17 +109,26 @@ def allowed_kinds(world: World) -> frozenset[str]:
     """
     Typed kinds legal for create in this world.
 
-    Mentalor: only mentor-taught types (starts **empty** — zero point).
-    Untyped VENs (kind "") are separate (SELF as code 0).
+    Mentalor: only mentor-taught types. Day of Days starts with **where**
+    (location / first room). Untyped VENs (kind "") stay separate (SELF=0).
     Classic seeds: full KINDS table.
     """
     from . import cycle as cycle_mod
-    from .world import KINDS
+    from .world import KIND_ALIASES, KINDS
 
     if not cycle_mod.is_mentalor(world):
         return frozenset(KINDS)
     ws = workshop_for(world)
-    return frozenset(ws.types.keys())
+    keys = set(ws.types.keys())
+    # where ↔ place: teach either name, allow both at create
+    if "where" in keys or "place" in keys:
+        keys.add("where")
+        keys.add("place")
+    # Also accept alias keys that fold into a taught root
+    for alias, root in KIND_ALIASES.items():
+        if root in keys:
+            keys.add(alias)
+    return frozenset(keys)
 
 
 def assert_kind_allowed(world: World, kind: str) -> None:

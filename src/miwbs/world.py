@@ -67,6 +67,10 @@ KIND_ALIASES: dict[str, str] = {
     "container": "bin",
     "box": "bin",
     "crate": "bin",
+    # Day of Days: "where" is the spoken root for location (engine: place)
+    "where": "place",
+    "room": "place",
+    "stage": "place",
 }
 
 # Author subtypes welcome on all adventure roots (not only a “feeling group”)

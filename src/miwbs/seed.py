@@ -36,11 +36,12 @@ def seed_world(conn: sqlite3.Connection, flavor: str = "mentalor") -> None:
 
 def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     """
-    Day of Days (Cycle ʞ): zero point — SELF (0) and ECHO (1), both untyped.
+    Day of Days (Cycle ʞ): zero point.
 
-    No kind/type yet. No Concept prime. No taught mentor types.
-    ``consider`` opens a talk-style dialog with ECHO (self answering self).
-    Remember surface = SELF + Cycle nodes.
+    - **where** is the first taught type; first room is a where (not SELF).
+    - SELF (code 0) and ECHO (code 1) are untyped — Thinker and backflow.
+    - SELF stands *in* the where; rename here ≠ rename me.
+    - ``consider`` talks with ECHO. Remember surface = the where + Cycle nodes.
     """
     from . import cycle as cycle_mod
     from . import mentor as mentor_mod
@@ -48,7 +49,21 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     init_schema(conn)
     w = World(conn)
 
-    # Untyped zero-point Thinker
+    # Mode + first type before any typed prime
+    cycle_mod.set_mentalor_mode(w, True)
+    mentor_mod.bootstrap_world_workshop(w, initial_types=("where",))
+
+    # First where — the room / stage (engine kind: place via alias)
+    where_ven = w.create_ven(
+        "HERE",
+        "where",
+        "The first where — stage before form. You stand in it; you are not it.",
+    )
+    where_inst = w.instantiate(where_ven)
+    w.set_name_override(where_inst, "the pressure of something")
+    w.set_description(where_inst, "")
+
+    # Untyped zero-point Thinker (not the room)
     self_ven = w.create_ven(
         "SELF",
         "",  # no type
@@ -57,10 +72,9 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     )
     self_inst = w.instantiate(self_ven)
     w.set_player(self_inst)
-    w.set_name_override(self_inst, "the pressure of something")
-    w.set_description(self_inst, "")
+    w.put_in(self_inst, where_inst, slot="interior")
 
-    # Untyped backflow — not a person VEN; dialog partner for consider
+    # Untyped backflow — dialog partner for consider
     echo_ven = w.create_ven(
         "ECHO",
         "",
@@ -69,16 +83,17 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     )
     echo_inst = w.instantiate(echo_ven)
     set_meta(conn, "echo_instance_id", echo_inst)
+    # Echo shares the room so it is "here" for consider, not the room itself
+    w.put_in(echo_inst, where_inst, slot="interior")
 
     set_meta(conn, "world_name", "Day of Days")
-    set_meta(conn, "seed_version", "mentalor-ʞ-5")
-    cycle_mod.set_mentalor_mode(w, True)
+    set_meta(conn, "seed_version", "mentalor-ʞ-6")
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)
+    # Node title/body land on the where, not on SELF
     cycle_mod.apply_node_to_surface(
         w, cycle_mod.ensure_current(st), cycle_mod.current_face(st)
     )
-    mentor_mod.bootstrap_world_workshop(w, initial_types=())
 
 
 def seed_world_classic(conn: sqlite3.Connection) -> None:

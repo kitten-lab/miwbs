@@ -376,8 +376,9 @@ def remember_surface_id(world: World) -> str | None:
     """
     Instance that holds the remember title/body for the current beat.
 
-    Prefer player location (place world). Day of Days: no place — use SELF
-    (the player instance).
+    Prefer player location (the where / place you stand in). Only if there
+    is no location yet fall back to SELF — Day of Days seeds a first where
+    so room and Thinker stay two instances.
     """
     loc = world.player_location()
     if loc is not None:
@@ -386,7 +387,7 @@ def remember_surface_id(world: World) -> str | None:
 
 
 def apply_node_to_surface(world: World, node: CycleNode, face: str) -> None:
-    """Push node title/body onto the remember surface (place or SELF)."""
+    """Push node title/body onto the remember surface (where/place, not SELF)."""
     sid = remember_surface_id(world)
     if not sid:
         return
