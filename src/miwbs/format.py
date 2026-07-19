@@ -484,23 +484,21 @@ def warn01_line(body: str) -> str:
 
 def history_missing_request_help() -> str:
     """
-    Bare ``history`` with no subject — WARN-01 + helper frame.
+    Bare ``history`` with no subject — WARN-01 + dim helper.
 
-    Body inside the ``====`` rules is dim; rules share WARN amber.
+    Open blank lines frame the body (no heavy ``====`` rules).
     """
-    # One leading space — same gutter as `` WARN-01 `` handle
-    rule = " " + ("=" * 66)
-    # Body one step in from the rule / handle
+    # Body one step in from the WARN handle
     g = "   "
     lines = [
         warn01_line("MISSING REQUEST. PRINTING HELPER...."),
-        f"[dim]{rule}[/dim]",
+        "",
         f"[dim]{g}For researching the history of an item. Not all histories may be[/dim]",
         f"[dim]{g}properly recorded. Records department is improving each day![/dim]",
         "",  # blank line before Suggested Uses
         f"[dim]{g}[bold]Suggested Uses:[/bold] history <thing> or history on <thing>[/dim]",
         f"[dim]{g}Search <thing> by code, name, ven.[/dim]",
-        f"[dim]{rule}[/dim]",
+        "",
     ]
     return "\n".join(lines)
 
