@@ -41,7 +41,7 @@ Do **not** grow a permanent separate `@n` cosmology.
 |---------|------|
 | `remember` / `look` | You remember *title* · CYC… |
 | `cycle` / `cycle ʞ` / `cycle 0` | Set / show cycle |
-| `node +` or `+` | New node after current |
+| `node +` or `+` | After mark: tail → next sibling (1, 2…); mid-stream → splice under mark (0.1 between kras and 1) |
 | `node next` / `node prev` | Move stream |
 | `node list` | Paths on this cycle |
 | `node insert` | Splice between previous and current |
