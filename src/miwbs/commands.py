@@ -6194,11 +6194,27 @@ def _rename(world: World, arg: str) -> str:
         node_index=node_index,
         note=f"{old_disp} → {new_disp}",
     )
-    kind_note = f"  ({thing.ven_kind})" if thing.ven_kind == "place" else ""
-    return fmt.ok(
-        f"Renamed · {old_disp} → {fmt.named_ref(updated.name, ref)}"
-        f"{kind_note}  ·  story {story_when}  ·  {event_code}"
+    # SUCCESS (white) + SKYLINE (gray) — history stamp on its own line
+    code = (ref or "").strip().lstrip("#") or "—"
+    success_body = f"VEN {code} Renamed · {old_disp} → {new_disp}"
+
+    when_bit = story_when or "@unknown"
+    try:
+        from . import cycle as cycle_mod
+
+        if cycle_mod.is_mentalor(world):
+            when_bit = cycle_mod.current_face(cycle_mod.load_state(world))
+    except Exception:
+        pass
+    created = ""
+    rows = world.history_for("instance", iid)
+    if rows:
+        created = str(rows[-1]["created_at"] or "")
+    hst = (event_code or "").strip() or "—"
+    skyline_body = (
+        f"RECORDS UPDATED: {hst} @ {when_bit} · {fmt.skyline_unix(created)}"
     )
+    return fmt.success_with_skyline(success_body, skyline_body)
 
 
 def _instances(world: World, arg: str) -> str:

@@ -289,6 +289,43 @@ def ok(msg: str) -> str:
     return f"[bold green] SUCCESS [/bold green] [{OK}]{safe(msg)}[/{OK}]"
 
 
+def success_line(body: str) -> str:
+    """
+    Bright-green SUCCESS badge + white body::
+
+        SUCCESS  VEN SELF-0001 Renamed · old → new
+    """
+    return (
+        f"[bold bright_green] SUCCESS [/bold bright_green] "
+        f"[white]{safe(body)}[/white]"
+    )
+
+
+def skyline_line(body: str) -> str:
+    """
+    Bright-yellow SKYLINE badge + dim gray records line::
+
+        SKYLINE  RECORDS UPDATED: HST-001 @ CYC ʞ · u1784433943
+    """
+    return (
+        f"[bold bright_yellow] SKYLINE [/bold bright_yellow] "
+        f"[dim]{safe(body)}[/dim]"
+    )
+
+
+def success_with_skyline(success_body: str, skyline_body: str) -> str:
+    """Two-line act report: SUCCESS (white) then SKYLINE (gray)."""
+    return f"{success_line(success_body)}\n{skyline_line(skyline_body)}"
+
+
+def skyline_unix(created_at: str | None) -> str:
+    """Compact craft time for SKYLINE lines: ``u1784433943`` (no pipe)."""
+    d = typed_unix_display(created_at)
+    if d.startswith("u|"):
+        return "u" + d[2:]
+    return d
+
+
 def err(msg: str) -> str:
     """
     Terminal-prolog-shaped fault line::

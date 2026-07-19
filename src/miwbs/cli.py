@@ -711,19 +711,21 @@ def run_textual(world: World, world_path: Path) -> None:
             border: solid {TUI_BORDER_ACCENT};
             background: {TUI_INPUT_BG};
             layout: horizontal;
+            align: left middle;
         }}
         #cmd-prompt {{
-            width: 3;
-            height: 3;
-            content-align: center middle;
-            color: #f0d060;
+            width: 4;
+            min-width: 4;
+            height: 1fr;
+            content-align: right middle;
+            color: #ffd84a;
             text-style: bold;
             background: {TUI_INPUT_BG};
-            padding: 0 0;
+            padding: 0 1 0 1;
         }}
         #cmd {{
             width: 1fr;
-            height: 3;
+            height: 1fr;
             margin: 0 0;
             border: none;
             background: {TUI_INPUT_BG};
@@ -799,7 +801,12 @@ def run_textual(world: World, world_path: Path) -> None:
                     auto_scroll=True,
                 )
             with Horizontal(id="cmd-bar"):
-                yield Static(">|", id="cmd-prompt", markup=False)
+                # Markup so yellow always wins over theme; plain ">" can vanish
+                yield Static(
+                    "[bold #ffd84a]>[/bold #ffd84a][bold #ffd84a]|[/bold #ffd84a]",
+                    id="cmd-prompt",
+                    markup=True,
+                )
                 yield HistoryInput(
                     placeholder="",
                     id="cmd",
