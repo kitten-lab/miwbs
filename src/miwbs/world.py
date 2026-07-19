@@ -1,4 +1,9 @@
-"""World operations over the VEN model."""
+"""World operations over the VEN model.
+
+Zero-point face only needs create_ven / instantiate / player / meta / names.
+This file is still the full port engine (fat on purpose for later attach).
+Do not grow face verbs here — attach slices string *into* this, or slim later.
+"""
 
 from __future__ import annotations
 

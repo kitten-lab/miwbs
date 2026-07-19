@@ -1,10 +1,10 @@
-"""MIWBS — Multidimensional Interactive World Builder Studio.
+"""MIWBS — zero point.
 
-Mentalor-first: Day of Days (Cycle ʞ), think into the black box, expand
-narrative as Cycle · node. AIDM is the future co-storyteller — not this name.
+Day of Days: HERENOW + consider → crate/TPS.
+See docs/KERNEL.md and docs/zero-point.md.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0-zero"
 
 PRODUCT_NAME = "MIWBS"
 PRODUCT_LONG = "Multidimensional Interactive World Builder Studio"
