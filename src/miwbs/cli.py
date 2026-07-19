@@ -492,11 +492,33 @@ def run_textual(world: World, world_path: Path) -> None:
     from textual.app import App, ComposeResult
     from textual.binding import Binding
     from textual.containers import Horizontal
+    from textual.selection import Selection
     from textual.widgets import Footer, Input, RichLog, Static
 
     from .book_ui import make_book_reader_screen
     from .wiki_ui import make_wiki_reader_screen
     from .history import CommandHistory
+
+    class SelectableWorldLog(RichLog):
+        """World log with working mouse text selection + copy.
+
+        Stock RichLog paints strips but does not extract selection text
+        (``Widget.get_selection`` only works for simple single-frame visuals).
+        Mirror the plain ``Log`` path: join strip text, then extract.
+        """
+
+        ALLOW_SELECT = True
+
+        def get_selection(self, selection: Selection) -> tuple[str, str] | None:
+            if not self.lines:
+                return None
+            text = "\n".join(strip.text for strip in self.lines)
+            if not text:
+                return None
+            return selection.extract(text), "\n"
+
+        def selection_updated(self, selection: Selection | None) -> None:
+            self.refresh()
 
     class HistoryInput(Input):
         """Input with ↑ / ↓ command history; Alt+A / Alt+, . [ ] for node stream."""
@@ -635,7 +657,9 @@ def run_textual(world: World, world_path: Path) -> None:
         }}
         """
         BINDINGS = [
-            Binding("ctrl+c", "quit", "Quit"),
+            # Ctrl+C copies when there is a selection; otherwise quits (see action)
+            Binding("ctrl+c", "copy_or_quit", "Copy / Quit", show=False),
+            Binding("ctrl+q", "quit", "Quit", show=True),
             Binding("f1", "inline_help", "Help"),
         ]
 
@@ -645,12 +669,21 @@ def run_textual(world: World, world_path: Path) -> None:
             self._open_book_id: str | None = None
             self._open_wiki: tuple[str, bool] | None = None
 
+        def action_copy_or_quit(self) -> None:
+            """Ctrl+C: copy highlighted log text if any, else leave the studio."""
+            selected = self.screen.get_selected_text()
+            if selected:
+                self.copy_to_clipboard(selected)
+                self.notify("Copied.", severity="information", timeout=1.5)
+                return
+            self.exit()
+
         def compose(self) -> ComposeResult:
             with Horizontal(id="studio-header"):
                 yield Static("", id="header-left", markup=True)
                 yield Static("", id="header-right", markup=True)
             with Horizontal(id="body"):
-                yield RichLog(
+                yield SelectableWorldLog(
                     id="log",
                     highlight=False,
                     markup=True,
@@ -669,7 +702,7 @@ def run_textual(world: World, world_path: Path) -> None:
             self.sub_title = ""
             self._refresh_studio_header()
             # Same as clear: empty log — no tips banner, no auto-look
-            log = self.query_one("#log", RichLog)
+            log = self.query_one("#log", SelectableWorldLog)
             self._clear_world_log(log)
             # Prime RichLog so the first real write paints (Textual quirk)
             log.write("")
