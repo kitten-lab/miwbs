@@ -31,10 +31,10 @@ class ConsiderChronicleTests(unittest.TestCase):
         text = plain(r.message)
         self.assertIn("ECHO: I am somewhere.", text)
         self.assertIn("HISTORIES STORED:", text)
-        self.assertIn("CRATE cUID:", text)
-        self.assertIn("TPS tUID:", text)
-        self.assertIn("EVENT_TIME:", text)
-        self.assertIn("INGEST_TIME:", text)
+        self.assertIn("CRATE", text)
+        self.assertIn("TPS", text)
+        self.assertIn("EVENT", text)
+        self.assertIn("INGEST", text)
         crates = ch.load_crates(self.world)
         self.assertEqual(len(crates), 1)
         self.assertEqual(crates[0].body, "I am somewhere.")
@@ -50,12 +50,13 @@ class ConsiderChronicleTests(unittest.TestCase):
         self.assertEqual(len(crates), 1)
         self.assertEqual(crates[0].event_unix, -100000000)
         self.assertNotEqual(crates[0].event_unix, crates[0].ingest_unix)
-        self.assertIn("tps-n100000000", crates[0].tps_uid)
-        self.assertIn("EVENT_TIME:     u-100000000", text)
+        self.assertEqual(crates[0].tps_uid, "N100000000")
+        self.assertIn("EVENT     u-100000000", text)
 
     def test_allowlist_blocks_look(self) -> None:
         r = dispatch(self.world, "look")
-        self.assertIn("only consider", plain(r.message).lower())
+        self.assertIn("consider", plain(r.message).lower())
+        self.assertIn("research", plain(r.message).lower())
 
     def test_body_via_d_flag(self) -> None:
         r = dispatch(self.world, "consider -d the sky holds")
@@ -63,6 +64,30 @@ class ConsiderChronicleTests(unittest.TestCase):
         c = ch.load_crates(self.world)[0]
         self.assertEqual(c.body, "the sky holds")
         self.assertEqual(c.title, "")
+
+    def test_list_and_research(self) -> None:
+        dispatch(self.world, "consider I am somewhere.")
+        dispatch(self.world, "consider I am sometime. -e 0")
+        listed = plain(dispatch(self.world, "consider").message)
+        self.assertIn("[01]", listed)
+        self.assertIn("[02]", listed)
+        self.assertIn("ʞ:", listed)
+        self.assertNotIn("considered:", listed)
+        self.assertNotIn("crate-", listed.lower())  # no instruments on list
+        self.assertIn("research consideration", listed.lower())
+
+        detail = plain(dispatch(self.world, "research consideration 01").message)
+        self.assertIn("I am somewhere.", detail)
+        self.assertIn("CRATE", detail)
+        self.assertIn("TPS", detail)
+        self.assertNotIn("ECHO: Consideration", detail)
+
+        # soft spaces on crate id
+        crates = ch.considerations(self.world)
+        uid = crates[0].crate_uid  # e.g. C1C-FE3-860
+        spaced = uid.replace("-", " ")
+        rabbit = plain(dispatch(self.world, f"research crate {spaced}").message)
+        self.assertIn("white rabbit", rabbit.lower())
 
     def test_studio_opener_not_stored_as_body(self) -> None:
         from miwbs.multiline_open import (

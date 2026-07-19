@@ -1,7 +1,8 @@
-"""Zero-point command surface — consider (+ clear / quit / help)."""
+"""Zero-point command surface — consider + research (+ clear / quit / help)."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from . import format as fmt
@@ -17,7 +18,6 @@ class CommandResult:
     clear_log: bool = False
 
 
-# Strict zero allowlist
 _ZERO_CMDS = frozenset(
     {
         "quit",
@@ -29,6 +29,7 @@ _ZERO_CMDS = frozenset(
         "?",
         "consider",
         "wonder",
+        "research",
     }
 )
 
@@ -46,9 +47,10 @@ def dispatch(world, line: str) -> CommandResult:
         return CommandResult(
             True,
             fmt.hint(
-                "Zero point — only consider is open.\n"
+                "Zero point — consider + research.\n"
                 "  consider <text>  ·  -d <text>  ·  -e <unix>\n"
                 "  consider <<studio  ·  consider  (list)\n"
+                "  research consideration 01  ·  research crate C1C FE3 860\n"
                 "  clear · quit · help"
             ),
         )
@@ -62,6 +64,8 @@ def dispatch(world, line: str) -> CommandResult:
             return CommandResult(True, _help_zero())
         if cmd in ("consider", "wonder"):
             return CommandResult(True, _consider_herenow(world, arg))
+        if cmd == "research":
+            return CommandResult(True, _research(world, arg))
     except Exception as e:  # noqa: BLE001
         return CommandResult(False, fmt.err(str(e)))
 
@@ -72,44 +76,25 @@ def _help_zero() -> str:
     return "\n".join(
         [
             fmt.section("zero point"),
-            fmt.hint("consider <text>     — store a consideration (crate + TPS)"),
+            fmt.hint("consider <text>     — store a consideration"),
             fmt.hint("consider -d <text>  — same body via flag"),
-            fmt.hint("consider … -e <n>   — event unix (story time)"),
-            fmt.hint("consider <<studio   — write body in the studio"),
-            fmt.hint("consider            — list considerations"),
+            fmt.hint("consider … -e <n>   — event unix"),
+            fmt.hint("consider <<studio   — studio body"),
+            fmt.hint("consider            — list [01] [02] …"),
+            fmt.hint("research consideration 01  — open one"),
+            fmt.hint("research crate C1C FE3 860  — follow (stub)"),
             fmt.hint("clear · quit"),
         ]
     )
 
 
 def _consider_herenow(world, arg: str) -> str:
-    """
-    Single-note consider → crate + TPS.
-
-    Body: positionals and/or -d/--desc/--detail/--data.
-    Event: -e / --event only. Writer null.
-    """
     from . import chronicle as ch
     from .argflags import CONSIDER_FLAG_ALIASES, parse_named_flags
 
     raw = (arg or "").strip()
     if not raw:
-        crates = [c for c in ch.load_crates(world) if c.kind == "consideration"]
-        if not crates:
-            return fmt.hint(
-                "No considerations yet.\n"
-                "  consider <text>  ·  consider -d <text>  ·  -e <unix>\n"
-                "  consider <<studio"
-            )
-        sw = fmt.SOFT_WHITE
-        lines: list[str] = []
-        for c in crates:
-            body = (c.body or "—").strip()
-            lines.append(f"[{sw}]ʞ considered:  {fmt.safe(body)}[/{sw}]")
-            lines.append(
-                f"    [dim]{fmt.safe(c.crate_uid)}  ·  {fmt.safe(c.tps_uid)}[/dim]"
-            )
-        return "\n".join(lines)
+        return ch.format_consideration_list(ch.considerations(world))
 
     low = raw.lower()
     if low.startswith("note ") or low.startswith("note|") or low == "note":
@@ -131,7 +116,6 @@ def _consider_herenow(world, arg: str) -> str:
     if not body:
         return fmt.hint(
             "consider <text>  ·  consider -d <text>  ·  -e <unix>\n"
-            "  e.g. consider I am somewhere  ·  consider I am somewhere -e -100000000\n"
             "  studio: consider <<studio"
         )
     if body.lower().strip() in ("<<", "<<studio", "{", "{studio}"):
@@ -158,3 +142,62 @@ def _consider_herenow(world, arg: str) -> str:
     echo = ch.format_echo_considered(body)
     hist = ch.format_histories_stored(crate)
     return f"{echo}\n\n{hist}"
+
+
+def _research(world, arg: str) -> str:
+    """
+    research consideration 01
+    research crate C1C-FE3-860
+    research crate C1C FE3 860
+    """
+    from . import chronicle as ch
+
+    raw = (arg or "").strip()
+    if not raw:
+        return fmt.hint(
+            "research consideration 01\n"
+            "research crate C1C-FE3-860  ·  research crate C1C FE3 860"
+        )
+
+    parts = raw.split(maxsplit=1)
+    kind = parts[0].lower()
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    # research 01  → consideration
+    if kind.isdigit() or re.fullmatch(r"0*\d+", kind):
+        rest = kind
+        kind = "consideration"
+
+    if kind in ("consideration", "consider", "c", "con"):
+        if not rest:
+            return fmt.hint("research consideration 01")
+        token = rest.strip().lstrip("#")
+        # allow [01] or 01
+        token = token.strip("[]")
+        if not token.isdigit():
+            return fmt.hint(f"Need a list number, got {rest!r}")
+        seq = int(token)
+        crate = ch.get_consideration_by_seq(world, seq)
+        if crate is None:
+            return fmt.hint(f"No consideration [{ch.format_seq(seq)}].")
+        return ch.format_consideration_detail(crate)
+
+    if kind in ("crate", "cr"):
+        if not rest:
+            return fmt.hint("research crate C1C-FE3-860")
+        crate = ch.get_crate_by_uid(world, rest)
+        if crate is None:
+            return ch.format_crate_rabbit(rest)
+        # Found: still rabbit until full report exists — but acknowledge
+        return ch.format_crate_rabbit(crate.crate_uid)
+
+    if kind in ("tps",):
+        return fmt.hint(
+            "TPS research soon.\n"
+            "  For now: research consideration 01  ·  research crate …"
+        )
+
+    return fmt.hint(
+        "research consideration 01\n"
+        "research crate C1C FE3 860"
+    )
