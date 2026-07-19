@@ -105,7 +105,7 @@ class VenPackRoundTripTests(unittest.TestCase):
             r = dispatch(self.world, "vens export The Knock")
             self.assertTrue(r.ok, r.message)
             self.assertIn("Exported", plain(r.message))
-            listed = dispatch(self.world, "ven load")
+            listed = dispatch(self.world, "import")
             self.assertTrue(listed.ok, listed.message)
             self.assertIn("The Knock", plain(listed.message))
             self.assertIn("VEN collector", plain(listed.message))
@@ -113,11 +113,14 @@ class VenPackRoundTripTests(unittest.TestCase):
             other = _world()
             packs = list_packs(self.collector)
             self.assertEqual(len(packs), 1)
-            imp = dispatch(other, f"ven load {packs[0].path.name}")
+            imp = dispatch(other, f"import {packs[0].path.name}")
             self.assertTrue(imp.ok, imp.message)
             self.assertIn("Imported", plain(imp.message))
             found = other.find_ven("The Knock")
             self.assertIsNotNone(found)
+            # Legacy alias still works
+            legacy = dispatch(other, "ven load")
+            self.assertTrue(legacy.ok, legacy.message)
 
     def test_code_remap_on_conflict(self) -> None:
         ven = self.world.find_ven("The Knock")

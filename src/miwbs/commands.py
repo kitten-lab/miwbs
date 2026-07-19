@@ -197,7 +197,11 @@ def dispatch(world: World, line: str) -> CommandResult:
             return CommandResult(True, _elevate(world, arg))
         if cmd == "vens":
             return CommandResult(True, _list_vens(world, arg))
+        # Pack import — top-level ``import`` (not ``ven``; confuses with ``vens``)
+        if cmd in ("import", "load"):
+            return CommandResult(True, _vens_load(world, arg))
         if cmd == "ven":
+            # Legacy: ven load / ven import → same as import
             return CommandResult(True, _ven_cmd(world, arg))
         if cmd == "lineage":
             return CommandResult(True, _lineage(world, arg))
@@ -6790,7 +6794,7 @@ def _list_vens(world: World, arg: str) -> str:
     if kind and kind not in KINDS:
         return fmt.err(
             f"Unknown kind {kind!r}.  Or: vens types  ·  vens tree  ·  "
-            f"vens export  ·  vens load"
+            f"vens export  ·  import"
         )
     vens = world.list_vens(kind)
     if not vens:
@@ -6868,7 +6872,12 @@ def _list_vens(world: World, arg: str) -> str:
 
 
 def _ven_cmd(world: World, arg: str) -> str:
-    """ven load [pack]  ·  ven export <prime>  ·  ven rename … (aliases under vens)."""
+    """
+    Legacy single-ven shims.
+
+    Prefer ``import [pack]`` for collector load (not ``ven`` — confuses with
+    ``vens``). Export/rename live under ``vens …``.
+    """
     arg = arg.strip()
     low = arg.lower()
     if not arg or low in ("load", "import", "collector"):
@@ -6879,14 +6888,14 @@ def _ven_cmd(world: World, arg: str) -> str:
     if low.startswith("export "):
         return _vens_export(world, arg[7:].strip())
     if low == "export":
-        return fmt.hint("Usage: ven export <prime>  ·  ven load [pack]")
+        return fmt.hint("Usage: vens export <prime>  ·  import [pack]")
     if low.startswith("rename ") or low.startswith("call "):
         rest = arg.split(maxsplit=1)[1].strip() if " " in arg else ""
         return _vens_rename(world, rest)
     return fmt.hint(
-        "Usage: ven load [pack]  ·  ven export <prime>  ·  "
-        "ven rename <prime> as <name>\n"
-        "  Collector: ~/.aidm/ven-collector/"
+        "Usage: import [pack]  ·  vens export <prime>  ·  "
+        "vens rename <prime> as <name>\n"
+        "  (legacy: ven load)  ·  Collector: ~/.aidm/ven-collector/"
     )
 
 
@@ -7131,7 +7140,7 @@ def _vens_load(world: World, query: str) -> str:
         lines.append("")
         lines.append(
             fmt.hint(
-                "ven load <seq|code|file>  ·  vens export <prime|instance>"
+                "import <seq|code|file>  ·  vens export <prime|instance>"
             )
         )
         return "\n".join(lines)
@@ -7139,7 +7148,7 @@ def _vens_load(world: World, query: str) -> str:
     path = find_pack(q, root)
     if path is None:
         return fmt.err(
-            f"No pack matching {q!r}.  Try: ven load  (lists collector)"
+            f"No pack matching {q!r}.  Try: import  (lists collector)"
         )
     loc = world.player_location()
     try:

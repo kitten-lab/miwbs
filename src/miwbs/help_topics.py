@@ -1555,9 +1555,9 @@ def _init_topics() -> None:
                 "vens export prime field-notes",
                 "Force prime-only export",
             ),
-            fmt.example_line("ven load", "List packs (MODE = prime|inst)"),
+            fmt.example_line("import", "List packs (MODE = prime|inst)"),
             fmt.example_line(
-                "ven load 0002-FOL-001-0001-ritual-notes",
+                "import 0002-FOL-001-0001-ritual-notes",
                 "Import instance into this place (+ ensure prime)",
             ),
             fmt.hint(
