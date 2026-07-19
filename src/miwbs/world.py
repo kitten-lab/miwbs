@@ -772,12 +772,23 @@ class World:
         stack = self.portal_stack()
         return stack[-1] if stack else None
 
+    def _ven_instance_count(self, ven_id: str) -> int:
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS c FROM instances WHERE ven_id = ?",
+            (ven_id,),
+        ).fetchone()
+        return int(row["c"]) if row else 0
+
     def short_ref_of(self, instance_id: str) -> str:
         """
-        Player-facing short ref: prefer compact ``OBJ-014-0001`` (VEN code + seq).
+        Player-facing short ref.
 
-        Digits are stored per prime; code/slug is joined at read time.
+        Storage always has per-instance digits. **Face:** if this is the only
+        living instance of its prime, show the bare prime code (``0``, ``1``,
+        ``WHR-001``) — no ``-0001``. Second copy onward: full ``CODE-0002``.
         """
+        from .ids import prime_face_code
+
         st = self.instance_state(instance_id)
         raw = str(st.get("short_ref") or "").strip()
         dig = digits_from_short_ref(raw)
@@ -793,50 +804,95 @@ class World:
             st["short_ref"] = dig
             self.set_instance_state(instance_id, st)
         slug = inst.ven_slug or inst.ven_name or "ITEM"
+        singleton = self._ven_instance_count(inst.ven_id) == 1
         return format_instance_short_ref(
-            slug, dig, ven_code=inst.ven_code
+            slug, dig, ven_code=inst.ven_code, singleton=singleton
+        )
+
+    def short_ref_composite_of(self, instance_id: str) -> str:
+        """Always CODE-NNNN (or bare-N) with instance digits — for matching."""
+        st = self.instance_state(instance_id)
+        dig = digits_from_short_ref(str(st.get("short_ref") or "").strip())
+        inst = self.get_instance(instance_id)
+        if inst is None:
+            return "----"
+        if dig is None:
+            dig = self._next_short_ref(inst.ven_id)
+            st = self.instance_state(instance_id)
+            st["short_ref"] = dig
+            self.set_instance_state(instance_id, st)
+        slug = inst.ven_slug or inst.ven_name or "ITEM"
+        return format_instance_short_ref(
+            slug, dig, ven_code=inst.ven_code, singleton=False
         )
 
     def short_ref_matches(self, instance_id: str, query_ref: str) -> bool:
-        """True if *query_ref* (digits, code, or legacy slug composite) names this instance.
+        """True if *query_ref* names this instance (face or full composite).
 
         Soft typing: spaces/underscores act like dashes
         (``bin 003 0043`` matches ``BIN-003-0043``).
+        Bare prime code matches only the singleton instance of that prime.
         """
-        from .ids import normalize_ref_separators
+        from .ids import normalize_ref_separators, prime_face_code
 
         q = (query_ref or "").strip().lstrip("#")
         if not q:
             return False
-        full = self.short_ref_of(instance_id)
-        if q.casefold() == full.casefold():
+        face = self.short_ref_of(instance_id)
+        if q.casefold() == face.casefold():
             return True
         # Soft separators → canonical compare
         q_soft = normalize_ref_separators(q)
-        full_soft = normalize_ref_separators(full)
-        if q_soft and q_soft.casefold() == full_soft.casefold():
+        face_soft = normalize_ref_separators(face)
+        if q_soft and q_soft.casefold() == face_soft.casefold():
             return True
         inst = self.get_instance(instance_id)
-        dig = digits_from_short_ref(full)
+        if inst is None:
+            return False
+        composite = self.short_ref_composite_of(instance_id)
+        if q.casefold() == composite.casefold():
+            return True
+        if (
+            q_soft
+            and normalize_ref_separators(composite).casefold() == q_soft.casefold()
+        ):
+            return True
+        dig = digits_from_short_ref(
+            str(self.instance_state(instance_id).get("short_ref") or "")
+        )
         # Legacy cute-slug composite (FIELD-NOTES-0001) still resolves
-        if inst is not None and dig:
+        if dig:
             legacy = format_instance_short_ref(
                 inst.ven_slug or inst.ven_name or "ITEM",
                 dig,
                 ven_code=None,
+                singleton=False,
             )
             if q.casefold() == legacy.casefold():
                 return True
             if normalize_ref_separators(legacy).casefold() == q_soft.casefold():
                 return True
+        # Bare prime code → only when this is the sole instance of that ven
+        prime = prime_face_code(inst.ven_code)
+        if (
+            prime
+            and q.casefold() == prime.casefold()
+            and self._ven_instance_count(inst.ven_id) == 1
+        ):
+            return True
         parsed = parse_instance_ref_token(q)
         if parsed:
-            if parsed.casefold() == full.casefold():
+            if parsed.casefold() == face.casefold():
+                return True
+            if parsed.casefold() == composite.casefold():
                 return True
             if parsed.isdigit() and dig == parsed:
                 return True
         if q.isdigit() and dig == format_instance_ref(int(q)):
             return True
+        # Bare untyped "0" / "1" as face (not zero-padded dig)
+        if re.fullmatch(r"\d+", q) and prime == q:
+            return self._ven_instance_count(inst.ven_id) == 1
         return False
 
     def get_name_override(self, instance_id: str) -> str | None:
@@ -2719,10 +2775,21 @@ class World:
         kind: str | None = None,
     ) -> list[InstanceView]:
         """All reachable matches for a query (may be empty or many)."""
-        base, where, ref = parse_resolve_query(name)
         candidates = self.resolve_here_candidates()
         if kind:
             candidates = [c for c in candidates if c.ven_kind == kind]
+
+        # Whole-query short-ref first (singleton bare codes + soft spaces:
+        # ``BIN 001`` → BIN-001 before parse_resolve_query peels ``001`` as digits)
+        raw_q = (name or "").strip()
+        if raw_q and "#" not in raw_q:
+            by_ref_whole = [
+                c for c in candidates if self.short_ref_matches(c.id, raw_q)
+            ]
+            if len(by_ref_whole) == 1:
+                return by_ref_whole
+
+        base, where, ref = parse_resolve_query(name)
 
         # Filter by location qualifier (includes nested under place / inv trees)
         if where == "here":

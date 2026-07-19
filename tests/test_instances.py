@@ -104,11 +104,13 @@ class InstanceIdentityTests(unittest.TestCase):
         r1 = dispatch(self.world, "spawn field-notes as Ritual Notes")
         self.assertTrue(r1.ok, msg=r1.message)
         msg1 = plain(r1.message)
-        self.assertRegex(msg1, r"FOL-\d{3}-0001")
+        # Singleton face: bare prime code (no -0001 yet)
+        self.assertRegex(msg1, r"FOL-\d{3}(?!-\d)")
         self.assertIn("Ritual Notes", msg1)
 
         r2 = dispatch(self.world, "spawn field-notes as Pocket Notes")
         self.assertTrue(r2.ok, msg=r2.message)
+        # Second copy: full composites
         self.assertRegex(plain(r2.message), r"FOL-\d{3}-0002")
 
         ven = self.world.find_ven("field-notes")
@@ -127,8 +129,8 @@ class InstanceIdentityTests(unittest.TestCase):
         inst = self.world.resolve_here_named("soft shelf")
         assert inst is not None
         ref = self.world.short_ref_of(inst.id)
-        self.assertRegex(ref, r"^BIN-\d{3}-0001$")
-        # spaced form of the same code
+        # Singleton: bare BIN-NNN; soft spaces still resolve
+        self.assertRegex(ref, r"^BIN-\d{3}$")
         soft = ref.replace("-", " ")
         hit = self.world.resolve_here_named(soft)
         self.assertIsNotNone(hit)
@@ -166,14 +168,10 @@ class InstanceIdentityTests(unittest.TestCase):
         self.assertNotIn("Ambiguous", plain(r_ref.message))
         self.assertIn("page", plain(r_ref.message).lower())
 
-        # by full compact composite
-        ven = self.world.find_ven("field-notes")
-        assert ven is not None
-        code_ref = f"{ven.code}-0001"
-        r_comp = dispatch(self.world, f"book pages field-notes#{code_ref}")
-        self.assertNotIn("Ambiguous", plain(r_comp.message))
-        self.assertIn("page", plain(r_comp.message).lower())
-        # legacy cute-slug ref still resolves
+        # by digit suffix after name (still works when two copies exist)
+        r_ref2 = dispatch(self.world, "book pages field-notes#0002")
+        self.assertNotIn("Ambiguous", plain(r_ref2.message))
+        # legacy cute-slug ref still resolves via short_ref_matches
         r_legacy = dispatch(
             self.world, "book pages field-notes#FIELD-NOTES-0001"
         )
@@ -184,8 +182,11 @@ class InstanceIdentityTests(unittest.TestCase):
         r = dispatch(self.world, "examine ritual")
         self.assertTrue(r.ok, msg=r.message)
         text = plain(r.message)
-        self.assertRegex(text, r"FOL-\d{3}-0001")
         self.assertIn("Ritual Notes", text)
+        # Singleton face code is bare prime (may appear on examine chrome later)
+        inst = self.world.resolve_here_named("ritual")
+        assert inst is not None
+        self.assertRegex(self.world.short_ref_of(inst.id), r"^FOL-\d{3}$")
 
     def test_resolve_by_composite_alone(self) -> None:
         dispatch(self.world, "spawn field-notes as Ritual Notes")
@@ -197,7 +198,9 @@ class InstanceIdentityTests(unittest.TestCase):
         self.assertTrue(r.ok, msg=r.message)
         text = plain(r.message)
         self.assertIn("Pocket Notes", text)
-        self.assertRegex(text, r"FOL-\d{3}-0002")
+        pocket = self.world.resolve_here_named(f"{ven.code}-0002")
+        assert pocket is not None
+        self.assertEqual(self.world.short_ref_of(pocket.id), f"{ven.code}-0002")
         # Legacy cute slug form still works
         r2 = dispatch(self.world, "examine FIELD-NOTES-0002")
         self.assertTrue(r2.ok, msg=r2.message)

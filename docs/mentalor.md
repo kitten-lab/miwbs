@@ -86,3 +86,8 @@ ws.mint_type("concept", "the sense of Concept")   # type emerges
 
 Remember surface = first **where** (kind `where`, code WHR-…) + Cycle ʞ nodes.  
 SELF (0) stands in it; ECHO (1) shares it. **place** is a *kind of* where (`where/place`), not the root.
+
+**Face codes:** while a prime has only one living instance, the face shows the bare
+prime code (`0`, `1`, `WHR-001`) — not `0-0001`. A second copy introduces `-0002`.
+Storage still keeps instance digits; this is display/resolve policy only.
+(Optional later dress for bare ints: `PRM-0`. Longer arc: primes become types.)

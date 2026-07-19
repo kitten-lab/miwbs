@@ -50,6 +50,13 @@ class MentalorCycleTests(unittest.TestCase):
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
         self.assertEqual(n_inst, 3)
+        # Face: singleton primes show bare code (0 / 1 / WHR-001), not -0001
+        for r in self.world.conn.execute(
+            "SELECT i.id, v.code FROM instances i JOIN vens v ON v.id = i.ven_id"
+        ):
+            face = self.world.short_ref_of(r["id"])
+            code = (r["code"] or "").strip()
+            self.assertEqual(face, code, msg=f"expected bare {code!r}, got {face!r}")
 
     def test_self_is_not_the_room(self) -> None:
         """SELF stands in the first where; rename here ≠ rename me."""

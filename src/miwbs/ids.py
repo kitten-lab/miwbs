@@ -305,16 +305,35 @@ def format_instance_ref(n: int) -> str:
     return f"{n:04d}"
 
 
+def prime_face_code(ven_code: str | None) -> str | None:
+    """
+    Canonical prime-only face code, or None if no usable code.
+
+    Bare untyped ints stay bare (``0``, ``1``). Compact codes stay
+    ``WHR-001`` / ``THG-014``. Optional future: ``PRM-0`` for zero-point
+    dress — not applied here; display policy lives in World.short_ref_of.
+    """
+    bare = (ven_code or "").strip()
+    if not bare:
+        return None
+    if re.fullmatch(r"\d+", bare):
+        return bare
+    return parse_ven_code(bare)
+
+
 def format_instance_short_ref(
     slug: str,
     n: int | str,
     *,
     ven_code: str | None = None,
+    singleton: bool = False,
 ) -> str:
     """
     Player-facing short ref for an instance.
 
     Prefer compact VEN code: ``OBJ-014-0001``.
+    When *singleton* is True (only living instance of this prime), return
+    the bare prime code only: ``0``, ``1``, ``WHR-001`` — no ``-0001``.
     Fallback (legacy): cute slug + digits ``FIELD-NOTES-0001``.
     """
     if isinstance(n, int):
@@ -323,15 +342,14 @@ def format_instance_short_ref(
         s = str(n).strip()
         dig = digits_from_short_ref(s)
         digits = dig if dig else format_instance_ref(1)
-    # Compact XXX-NNN codes (THG-001-0001)
-    code = parse_ven_code(ven_code) if ven_code else None
-    if code:
-        return f"{code}-{digits}"
-    # Untyped bare integer codes (SELF=0, ECHO=1) — whole code is the digit
-    bare = (ven_code or "").strip()
-    if re.fullmatch(r"\d+", bare):
-        return f"{bare}-{digits}"
+    face = prime_face_code(ven_code)
+    if face is not None:
+        if singleton:
+            return face
+        return f"{face}-{digits}"
     base = cute_name(slug) if slug else "ITEM"
+    if singleton:
+        return base
     return f"{base}-{digits}"
 
 

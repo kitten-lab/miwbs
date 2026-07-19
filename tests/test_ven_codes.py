@@ -62,7 +62,8 @@ class VenCodeWorldTests(unittest.TestCase):
         inst = self.world.resolve_here_named("gadget")
         assert inst is not None
         ref = self.world.short_ref_of(inst.id)
-        self.assertRegex(ref, r"^THG-\d{3}-\d{4}$")
+        # Singleton: bare prime code only
+        self.assertRegex(ref, r"^THG-\d{3}$")
 
 
     def test_seed_backfill_has_codes(self) -> None:
