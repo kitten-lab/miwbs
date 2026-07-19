@@ -466,6 +466,10 @@ def warn(msg: str) -> str:
     return f"[bright_blue] WARNING [/bright_blue] {safe(msg)}"
 
 
+# Amber/orange for WARN-01 + helper rules (not skyline yellow)
+WARN_ORANGE = "#e89a3c"
+
+
 def warn01_line(body: str) -> str:
     """
     Soft warning handle (not bold)::
@@ -473,7 +477,7 @@ def warn01_line(body: str) -> str:
         WARN-01  MISSING REQUEST. PRINTING HELPER....
     """
     return (
-        f"[bright_yellow] WARN-01 [/bright_yellow] "
+        f"[{WARN_ORANGE}] WARN-01 [/{WARN_ORANGE}] "
         f"[{SOFT_WHITE}]{safe(body)}[/{SOFT_WHITE}]"
     )
 
@@ -481,18 +485,21 @@ def warn01_line(body: str) -> str:
 def history_missing_request_help() -> str:
     """
     Bare ``history`` with no subject — WARN-01 + helper frame.
+
+    Body inside the ``====`` rules is dim; rules share WARN amber.
     """
+    # Align with handle gutter: two spaces, then rule / body
     rule = "  " + ("=" * 66)
-    sw = SOFT_WHITE
+    # One indent step for all body lines (no mixed 3-space / 5-space)
+    g = "   "
     lines = [
         warn01_line("MISSING REQUEST. PRINTING HELPER...."),
-        f"[dim]{rule}[/dim]",
-        f"   [{sw}]For researching the history of an item. Not all histories may be[/{sw}]",
-        f"   [{sw}]properly recorded. Records department is improving each day![/{sw}]",
-        f"     [{sw}]Suggested uses: history on <thing>[/{sw}]",
-        f"   [{sw}]Search <thing> by code, name, ven.[/{sw}]",
-        f"     [{sw}]Also: history me  ·  history here  ·  history HST-001[/{sw}]",
-        f"[dim]{rule}[/dim]",
+        f"[{WARN_ORANGE}]{rule}[/{WARN_ORANGE}]",
+        f"[dim]{g}For researching the history of an item. Not all histories may be[/dim]",
+        f"[dim]{g}properly recorded. Records department is improving each day![/dim]",
+        f"[dim]{g}[bold]Suggested Uses:[/bold] history <thing> or history on <thing>[/dim]",
+        f"[dim]{g}Search <thing> by code, name, ven.[/dim]",
+        f"[{WARN_ORANGE}]{rule}[/{WARN_ORANGE}]",
     ]
     return "\n".join(lines)
 
