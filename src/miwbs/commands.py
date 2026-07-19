@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from . import format as fmt
+from . import zero_face as face
 
 
 @dataclass
@@ -44,16 +45,7 @@ def dispatch(world, line: str) -> CommandResult:
     arg = parts[1] if len(parts) > 1 else ""
 
     if cmd not in _ZERO_CMDS:
-        return CommandResult(
-            True,
-            fmt.hint(
-                "Zero point — consider + research.\n"
-                "  consider <text>  ·  -d <text>  ·  -e <unix>\n"
-                "  consider <<studio  ·  consider  (list)\n"
-                "  research consideration 01  ·  research crate C1C FE3 860\n"
-                "  clear · quit · help"
-            ),
-        )
+        return CommandResult(True, fmt.hint(face.ZERO_BLOCKED))
 
     try:
         if cmd in ("quit", "exit", "q"):
@@ -61,7 +53,7 @@ def dispatch(world, line: str) -> CommandResult:
         if cmd in ("clear", "clr"):
             return CommandResult(True, "", clear_log=True)
         if cmd in ("help", "?"):
-            return CommandResult(True, _help_zero())
+            return CommandResult(True, fmt.hint(face.HELP_ZERO))
         if cmd in ("consider", "wonder"):
             return CommandResult(True, _consider_herenow(world, arg))
         if cmd == "research":
@@ -70,22 +62,6 @@ def dispatch(world, line: str) -> CommandResult:
         return CommandResult(False, fmt.err(str(e)))
 
     return CommandResult(True, "")
-
-
-def _help_zero() -> str:
-    return "\n".join(
-        [
-            fmt.section("zero point"),
-            fmt.hint("consider <text>     — store a consideration"),
-            fmt.hint("consider -d <text>  — same body via flag"),
-            fmt.hint("consider … -e <n>   — event unix"),
-            fmt.hint("consider <<studio   — studio body"),
-            fmt.hint("consider            — list [01] [02] …"),
-            fmt.hint("research consideration 01  — open one"),
-            fmt.hint("research crate C1C FE3 860  — follow (stub)"),
-            fmt.hint("clear · quit"),
-        ]
-    )
 
 
 def _consider_herenow(world, arg: str) -> str:
@@ -114,22 +90,16 @@ def _consider_herenow(world, arg: str) -> str:
     elif body_flag and body:
         body = body_flag.strip()
     if not body:
-        return fmt.hint(
-            "consider <text>  ·  consider -d <text>  ·  -e <unix>\n"
-            "  studio: consider <<studio"
-        )
+        return fmt.hint(face.USAGE_CONSIDER)
     if body.lower().strip() in ("<<", "<<studio", "{", "{studio}"):
-        return fmt.hint("Open studio with:  consider <<studio")
+        return fmt.hint(face.open_studio_hint())
 
     event_unix: int | None = None
     if event_raw:
         try:
             event_unix = int(str(event_raw).strip().lstrip("uU"))
         except ValueError:
-            return fmt.hint(
-                f"Bad -e event unix {event_raw!r}  ·  "
-                f"use an integer (e.g. -e -100000000)"
-            )
+            return fmt.hint(face.bad_event_unix(event_raw))
 
     crate = ch.append_consideration(
         world,
@@ -145,25 +115,16 @@ def _consider_herenow(world, arg: str) -> str:
 
 
 def _research(world, arg: str) -> str:
-    """
-    research consideration 01
-    research crate C1C-FE3-860
-    research crate C1C FE3 860
-    """
     from . import chronicle as ch
 
     raw = (arg or "").strip()
     if not raw:
-        return fmt.hint(
-            "research consideration 01\n"
-            "research crate C1C-FE3-860  ·  research crate C1C FE3 860"
-        )
+        return fmt.hint(face.USAGE_RESEARCH)
 
     parts = raw.split(maxsplit=1)
     kind = parts[0].lower()
     rest = parts[1].strip() if len(parts) > 1 else ""
 
-    # research 01  → consideration
     if kind.isdigit() or re.fullmatch(r"0*\d+", kind):
         rest = kind
         kind = "consideration"
@@ -171,15 +132,13 @@ def _research(world, arg: str) -> str:
     if kind in ("consideration", "consider", "c", "con"):
         if not rest:
             return fmt.hint("research consideration 01")
-        token = rest.strip().lstrip("#")
-        # allow [01] or 01
-        token = token.strip("[]")
+        token = rest.strip().lstrip("#").strip("[]")
         if not token.isdigit():
             return fmt.hint(f"Need a list number, got {rest!r}")
         seq = int(token)
         crate = ch.get_consideration_by_seq(world, seq)
         if crate is None:
-            return fmt.hint(f"No consideration [{ch.format_seq(seq)}].")
+            return fmt.hint(face.missing_consideration(ch.format_seq(seq)))
         return ch.format_consideration_detail(crate)
 
     if kind in ("crate", "cr"):
@@ -188,16 +147,12 @@ def _research(world, arg: str) -> str:
         crate = ch.get_crate_by_uid(world, rest)
         if crate is None:
             return ch.format_crate_rabbit(rest)
-        # Found: still rabbit until full report exists — but acknowledge
         return ch.format_crate_rabbit(crate.crate_uid)
 
     if kind in ("tps",):
         return fmt.hint(
             "TPS research soon.\n"
-            "  For now: research consideration 01  ·  research crate …"
+            "  For now: research consideration 01"
         )
 
-    return fmt.hint(
-        "research consideration 01\n"
-        "research crate C1C FE3 860"
-    )
+    return fmt.hint(face.USAGE_RESEARCH)

@@ -232,87 +232,45 @@ def get_crate_by_uid(world: World, token: str) -> Crate | None:
 
 
 def format_histories_stored(crate: Crate) -> str:
-    """Instrument block after a new consideration."""
-    lines = [
-        "HISTORIES STORED:",
-        f"CRATE     {crate.crate_uid}",
-        f"TPS       {crate.tps_uid}",
-        f"EVENT     {format_u(crate.event_unix)}",
-        f"INGEST    {format_u(crate.ingest_unix)}",
-    ]
-    return "\n".join(lines)
+    """Instrument block after a new consideration — copy in zero_face."""
+    from . import zero_face as face
+
+    return face.live_histories_stored(
+        crate_uid=crate.crate_uid,
+        tps_uid=crate.tps_uid,
+        event_u=format_u(crate.event_unix),
+        ingest_u=format_u(crate.ingest_unix),
+    )
 
 
 def format_echo_considered(body: str) -> str:
-    """Live reply mouth: ECHO: <body>."""
-    b = (body or "").strip() or "—"
-    return f"ECHO: {b}"
+    """Live reply mouth — copy in zero_face."""
+    from . import zero_face as face
+
+    return face.live_echo(body)
 
 
 def format_consideration_list(crates: list[Crate]) -> str:
-    """
-    Index face (no ECHO header, no crate/tps on the line)::
+    """Index face — copy in zero_face."""
+    from . import zero_face as face
 
-        [01]  ʞ:  I am somewhere.
-        [02]  ʞ:  I am sometime.
-    """
-    from . import format as fmt
-
-    if not crates:
-        return fmt.hint(
-            "No considerations yet.\n"
-            "  consider <text>  ·  -d <text>  ·  -e <unix>  ·  <<studio"
-        )
-    sw = fmt.SOFT_WHITE
-    lines: list[str] = []
-    for c in crates:
-        body = (c.body or "—").strip()
-        n = format_seq(c.seq)
-        lines.append(
-            f"[{sw}][{n}]  ʞ:  {fmt.safe(body)}[/{sw}]"
-        )
-    lines.append("")
-    lines.append(
-        fmt.hint("research consideration 01  ·  open a consideration by number")
-    )
-    return "\n".join(lines)
+    rows = [(format_seq(c.seq), (c.body or "—").strip()) for c in crates]
+    return face.list_face(rows)
 
 
 def format_consideration_detail(crate: Crate) -> str:
-    """
-    research consideration 01::
+    """research consideration N — copy in zero_face."""
+    from . import zero_face as face
 
-        ʞ:  I am somewhere.
-
-        CRATE   C1C-FE3-860
-        TPS     1784478058
-    """
-    from . import format as fmt
-
-    sw = fmt.SOFT_WHITE
-    body = (crate.body or "—").strip()
-    lines = [
-        f"[{sw}]ʞ:  {fmt.safe(body)}[/{sw}]",
-        "",
-        f"[dim]CRATE   {fmt.safe(crate.crate_uid)}[/dim]",
-        f"[dim]TPS     {fmt.safe(crate.tps_uid)}[/dim]",
-        "",
-        fmt.hint(
-            f"research crate {crate.crate_uid}  ·  follow the white rabbit (soon)"
-        ),
-    ]
-    return "\n".join(lines)
+    return face.research_consideration_detail(
+        body=crate.body,
+        crate_uid=crate.crate_uid,
+        tps_uid=crate.tps_uid,
+    )
 
 
 def format_crate_rabbit(token: str) -> str:
-    """Stub report until real crate report exists."""
-    from . import format as fmt
+    """Stub report — copy in zero_face."""
+    from . import zero_face as face
 
-    return "\n".join(
-        [
-            fmt.hint("Followed the white rabbit!"),
-            fmt.hint(
-                f"(crate {token} — real report data soon!  —management)"
-            ),
-        ]
-    )
+    return face.research_crate_rabbit(token)
