@@ -8,6 +8,8 @@ Ment(al)orship is not a peer app. It is the **first stage / layer** of playing M
 
 Classic `world-studio` remains runnable elsewhere. No automatic world import.
 
+**Operating method:** clean kernel → mint words → attach old capabilities **only on demand**, with your taxonomy. See [zero-point.md](./zero-point.md).
+
 ## VEN
 
 **Virtual Entity** and **Variable Energy Node** on the totalizing grid of the fabric of herenow.
