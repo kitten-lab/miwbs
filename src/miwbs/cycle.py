@@ -268,34 +268,52 @@ def _next_sibling_path(parent: str, existing: list[str]) -> str:
 
 def add_node_after_current(state: CycleState) -> CycleNode:
     """
-    + : append a new sibling after current in stream order.
+    + : insert a new node *after the mark* in stream order.
 
-    Splice pedigree: if current is 1, new may be 2 (top-level) or if we
-    always append as next top-level after max root — here we insert *after*
-    current in order list with path = next sibling under same parent.
+    Path pedigree must match that mark — not “next free root integer”:
+
+    - At the **end** of the stream → next sibling under the same parent
+      (kras → ``1`` → ``2`` …).
+    - With something **already following** → intercalate by splicing under
+      current (``0`` then ``1`` already exist → ``0.1`` between them, not
+      a top-level ``2`` that lands as kras · 2 · 1 and breaks time).
+
+    Stream order always places the new path immediately after current.
     """
     cyc = state.cycles[state.current_cycle]
-    cur = state.current_path
-    parent = cur.rsplit(".", 1)[0] if "." in cur else ""
-    # siblings share parent; new path under same parent
-    new_path = _next_sibling_path(parent, list(cyc.nodes.keys()))
-    # if new_path collides (shouldn't), walk
-    while new_path in cyc.nodes:
-        new_path = _next_sibling_path(parent, list(cyc.nodes.keys()) + [new_path + ".x"])
-        # fallback unique
-        if new_path in cyc.nodes:
-            new_path = f"{cur}.1"
-            i = 1
-            while new_path in cyc.nodes:
-                i += 1
-                new_path = f"{cur}.{i}"
-            break
+    cur = state.current_path or "0"
+    try:
+        idx = cyc.order.index(cur)
+    except ValueError:
+        idx = len(cyc.order) - 1 if cyc.order else -1
+
+    has_following = 0 <= idx < len(cyc.order) - 1
+    if has_following:
+        # Between mark and next: splice under current (0.1, 0.2, 1.1, …)
+        path_parent = cur
+    else:
+        # Tail of stream: next sibling under same parent
+        path_parent = cur.rsplit(".", 1)[0] if "." in cur else ""
+
+    keys = list(cyc.nodes.keys())
+    new_path = _next_sibling_path(path_parent, keys)
+    # Collisions: keep uniqueness under the intercalation parent
+    guard = 0
+    while new_path in cyc.nodes and guard < 64:
+        guard += 1
+        keys = list(cyc.nodes.keys()) + [new_path]
+        new_path = _next_sibling_path(path_parent, keys)
+    if new_path in cyc.nodes:
+        i = 1
+        new_path = f"{cur}.{i}"
+        while new_path in cyc.nodes:
+            i += 1
+            new_path = f"{cur}.{i}"
 
     node = CycleNode(path=new_path, title="", body="")
     cyc.nodes[new_path] = node
     if cur in cyc.order:
-        idx = cyc.order.index(cur) + 1
-        cyc.order.insert(idx, new_path)
+        cyc.order.insert(cyc.order.index(cur) + 1, new_path)
     else:
         cyc.order.append(new_path)
     state.current_path = new_path

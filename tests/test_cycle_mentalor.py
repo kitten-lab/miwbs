@@ -95,6 +95,24 @@ class MentalorCycleTests(unittest.TestCase):
             or cycle_mod.current_face(st) == "CYC ʞ"
         )
 
+    def test_node_plus_intercalates_not_skips(self) -> None:
+        """+ after kras with 1 ahead → 0.1 between, never kras · 2 · 1."""
+        dispatch(self.world, "node +")  # 0 → 1 at tail
+        st = cycle_mod.load_state(self.world)
+        self.assertEqual(st.cycles["ʞ"].order, ["0", "1"])
+        dispatch(self.world, "node prev")  # mark on kras
+        dispatch(self.world, "node +")  # intercalate under 0
+        st = cycle_mod.load_state(self.world)
+        self.assertEqual(st.current_path, "0.1")
+        self.assertEqual(st.cycles["ʞ"].order, ["0", "0.1", "1"])
+        self.assertEqual(cycle_mod.current_face(st), "CYC ʞ.ʞ.1")
+        # tail + still grows 2 after 1, not mid-stream
+        dispatch(self.world, "node next")  # 1
+        dispatch(self.world, "node +")
+        st = cycle_mod.load_state(self.world)
+        self.assertEqual(st.current_path, "2")
+        self.assertEqual(st.cycles["ʞ"].order, ["0", "0.1", "1", "2"])
+
     def test_node_stream_shorthands(self) -> None:
         from miwbs.format import plain
 
