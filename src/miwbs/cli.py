@@ -529,19 +529,26 @@ def run_textual(world: World, world_path: Path) -> None:
                 self.cursor_position = len(self.value)
 
         def _run_node_shorthand(self, token: str) -> None:
-            """Dispatch n+ / n> / n< from keybinding into the world log."""
+            """Dispatch n+ / n> / n< from keybinding — soft toast, not world log."""
             app = self.app
-            if not hasattr(app, "_write_world_turn"):
-                return
-            log = app.query_one("#log", RichLog)
             result = dispatch(world, token)
-            app._write_world_turn(  # noqa: SLF001 — StudioApp private by design
-                log,
-                token,
-                result.message or None,
-                clear_log=result.clear_log,
-            )
-            app._refresh_studio_header()  # noqa: SLF001
+            # Folio-style quiet toast (Leaf saved.) — keep the box clean
+            raw = fmt.plain(result.message or "").strip()
+            # Drop prolog SUCCESS / ERR-808 chrome; toast is the soft body only
+            up = raw.upper()
+            for prefix in ("SUCCESS", "ERR-808", "WARNING"):
+                if up.startswith(prefix):
+                    raw = raw[len(prefix) :].lstrip(" :·").strip()
+                    break
+            if raw:
+                severity = (
+                    "error"
+                    if "ERR-808" in (result.message or "").upper()
+                    else "information"
+                )
+                app.notify(raw, severity=severity, timeout=2.5)
+            if hasattr(app, "_refresh_studio_header"):
+                app._refresh_studio_header()  # noqa: SLF001 — StudioApp private by design
             if result.quit:
                 app.exit()
 
