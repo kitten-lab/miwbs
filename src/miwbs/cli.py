@@ -500,14 +500,61 @@ def run_textual(world: World, world_path: Path) -> None:
     from .history import CommandHistory
 
     class SelectableWorldLog(RichLog):
-        """World log with working mouse text selection + copy.
+        """World log with real mouse text selection + copy.
 
-        Stock RichLog paints strips but does not extract selection text
-        (``Widget.get_selection`` only works for simple single-frame visuals).
-        Mirror the plain ``Log`` path: join strip text, then extract.
+        Stock RichLog is almost selectable, but two gaps make drag feel
+        like “the whole window lights up”:
+
+        1. It never stamps ``offset`` meta on painted segments (plain
+           ``Log`` does via ``Strip.apply_offsets``), so the compositor
+           cannot resolve a content caret → Textual falls back to
+           SELECT_ALL over large widget ranges.
+        2. It never paints ``screen--selection`` on the chosen span.
+
+        We mirror Log for those two pieces and export plain text for copy.
         """
 
         ALLOW_SELECT = True
+
+        @staticmethod
+        def _stylize_char_range(strip, start: int, end: int, style) -> object:
+            """Apply a Rich style to a character range inside a Strip."""
+            from rich.segment import Segment
+            from textual.strip import Strip
+
+            if end < 0:
+                end = sum(len(seg.text) for seg in strip)
+            if start >= end:
+                return strip
+            out: list = []
+            pos = 0
+            for segment in strip:
+                text, seg_style, control = segment
+                n = len(text)
+                if n == 0:
+                    out.append(segment)
+                    continue
+                seg_start, seg_end = pos, pos + n
+                if seg_end <= start or seg_start >= end:
+                    out.append(segment)
+                else:
+                    # left (unselected)
+                    if seg_start < start:
+                        cut = start - seg_start
+                        out.append(Segment(text[:cut], seg_style, control))
+                        text = text[cut:]
+                        seg_start = start
+                    # middle (selected)
+                    if text and seg_start < end:
+                        cut = min(len(text), end - seg_start)
+                        mid_style = style if seg_style is None else seg_style + style
+                        out.append(Segment(text[:cut], mid_style, control))
+                        text = text[cut:]
+                    # right (unselected)
+                    if text:
+                        out.append(Segment(text, seg_style, control))
+                pos = seg_end
+            return Strip(out, strip.cell_length)
 
         def get_selection(self, selection: Selection) -> tuple[str, str] | None:
             if not self.lines:
@@ -518,7 +565,46 @@ def run_textual(world: World, world_path: Path) -> None:
             return selection.extract(text), "\n"
 
         def selection_updated(self, selection: Selection | None) -> None:
+            # Drop cached crops so highlight / offsets repaint cleanly
+            try:
+                self._line_cache.clear()
+            except Exception:
+                pass
             self.refresh()
+
+        def render_line(self, y: int):
+            """Like RichLog, but with selection offsets + highlight (see Log)."""
+            from rich.style import Style as RichStyle
+            from textual.strip import Strip
+
+            scroll_x, scroll_y = self.scroll_offset
+            content_y = scroll_y + y
+            width = self.scrollable_content_region.width
+            rich_style = self.rich_style
+
+            if content_y >= len(self.lines):
+                return Strip.blank(width, rich_style)
+
+            line = self.lines[content_y]
+            selection = self.text_selection
+            if selection is not None:
+                span = selection.get_span(content_y)
+                if span is not None:
+                    start, end = span
+                    if end < 0:
+                        end = len(line.text)
+                    try:
+                        sel_style = self.screen.get_component_rich_style(
+                            "screen--selection"
+                        )
+                    except Exception:
+                        sel_style = RichStyle(reverse=True)
+                    line = self._stylize_char_range(line, start, end, sel_style)
+
+            line = line.crop_extend(scroll_x, scroll_x + width, rich_style)
+            # Critical: content caret for compositor hit-testing
+            line = line.apply_offsets(scroll_x, content_y)
+            return line.apply_style(rich_style)
 
     class HistoryInput(Input):
         """Input with ↑ / ↓ command history; Alt+A / Alt+, . [ ] for node stream."""
@@ -679,9 +765,13 @@ def run_textual(world: World, world_path: Path) -> None:
             self.exit()
 
         def compose(self) -> ComposeResult:
+            # Headers are not text-select targets (avoids whole-chrome SELECT_ALL)
+            class ChromeStatic(Static):
+                ALLOW_SELECT = False
+
             with Horizontal(id="studio-header"):
-                yield Static("", id="header-left", markup=True)
-                yield Static("", id="header-right", markup=True)
+                yield ChromeStatic("", id="header-left", markup=True)
+                yield ChromeStatic("", id="header-right", markup=True)
             with Horizontal(id="body"):
                 yield SelectableWorldLog(
                     id="log",
