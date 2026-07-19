@@ -6226,9 +6226,13 @@ def _rename(world: World, arg: str) -> str:
         node_index=node_index,
         note=f"{old_disp} → {new_disp}",
     )
-    # SUCCESS (white) + SKYLINE (gray) — history stamp on its own line
+    # Soft body, close before hard-white pop on the new name only
     code = (ref or "").strip().lstrip("#") or "—"
-    success_body = f"VEN {code} Renamed · {old_disp} → {new_disp}"
+    sw = fmt.SOFT_WHITE
+    success_body = (
+        f"[{sw}]VEN {fmt.safe(code)} Renamed · {fmt.safe(old_disp)} → [/{sw}]"
+        f"{fmt.pop_name(new_disp)}"
+    )
 
     when_bit = story_when or "@unknown"
     try:
@@ -6246,7 +6250,7 @@ def _rename(world: World, arg: str) -> str:
     skyline_body = (
         f"RECORDS UPDATED: {hst} @ {when_bit} · {fmt.skyline_unix(created)}"
     )
-    return fmt.success_with_skyline(success_body, skyline_body)
+    return fmt.success_with_skyline(success_body, skyline_body, raw_success=True)
 
 
 def _instances(world: World, arg: str) -> str:

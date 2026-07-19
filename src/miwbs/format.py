@@ -21,6 +21,10 @@ OK = "green"
 ERR = "red"
 LABEL_WIDTH = 10
 
+# Body text ladder — soft default, hard white only for intentional pop
+SOFT_WHITE = "#e8e8ec"  # calm prose (log default / SUCCESS body)
+HARD_WHITE = "#ffffff"  # rare attention (new name after →, etc.)
+
 # Distinct Rich color per VEN kind (and soft colors for link types).
 KIND_COLORS: dict[str, str] = {
     "concept": "bright_white",
@@ -285,38 +289,56 @@ def hint(text: str) -> str:
 
 
 def ok(msg: str) -> str:
-    """Soft success — less shouty than prolog SUCCESS, still green."""
-    return f"[bold green] SUCCESS [/bold green] [{OK}]{safe(msg)}[/{OK}]"
+    """Soft success — colored handle, no bold; soft-white body."""
+    return (
+        f"[green] SUCCESS [/green] "
+        f"[{SOFT_WHITE}]{safe(msg)}[/{SOFT_WHITE}]"
+    )
 
 
-def success_line(body: str) -> str:
+def pop_name(text: str) -> str:
+    """Hard-white pop for a name/token that should draw the eye."""
+    return f"[{HARD_WHITE}]{safe(text)}[/{HARD_WHITE}]"
+
+
+def success_line(body: str, *, raw: bool = False) -> str:
     """
-    Bright-green SUCCESS badge + pure white body::
+    Green SUCCESS handle (not bold) + soft-white body::
 
         SUCCESS  VEN SELF-0001 Renamed · old → new
+
+    Pass ``raw=True`` when *body* is already escaped markup
+    (soft spans + optional :func:`pop_name` pops). Avoid nesting
+    hard-white inside soft-white — close soft before the pop.
     """
-    # #ffffff — plain ``white`` often renders as antique/dim in terminals
+    if raw:
+        return f"[bright_green] SUCCESS [/bright_green] {body}"
     return (
-        f"[bold bright_green] SUCCESS [/bold bright_green] "
-        f"[#ffffff]{safe(body)}[/#ffffff]"
+        f"[bright_green] SUCCESS [/bright_green] "
+        f"[{SOFT_WHITE}]{safe(body)}[/{SOFT_WHITE}]"
     )
 
 
 def skyline_line(body: str) -> str:
     """
-    Bright-yellow SKYLINE badge + dim gray records line::
+    Yellow SKYLINE handle (not bold) + dim gray records line::
 
         SKYLINE  RECORDS UPDATED: HST-001 @ CYC ʞ · u1784433943
     """
     return (
-        f"[bold bright_yellow] SKYLINE [/bold bright_yellow] "
+        f"[bright_yellow] SKYLINE [/bright_yellow] "
         f"[dim]{safe(body)}[/dim]"
     )
 
 
-def success_with_skyline(success_body: str, skyline_body: str) -> str:
-    """Two-line act report: SUCCESS (white) then SKYLINE (gray)."""
-    return f"{success_line(success_body)}\n{skyline_line(skyline_body)}"
+def success_with_skyline(
+    success_body: str, skyline_body: str, *, raw_success: bool = False
+) -> str:
+    """Two-line act report: SUCCESS (soft white) then SKYLINE (gray)."""
+    return (
+        f"{success_line(success_body, raw=raw_success)}\n"
+        f"{skyline_line(skyline_body)}"
+    )
 
 
 def skyline_unix(created_at: str | None) -> str:
@@ -333,19 +355,22 @@ def err(msg: str) -> str:
 
         ERR-808  that word has no weight here yet.
 
-    Red badge + red body. No compiler voice.
+    Colored handle, not bold. No compiler voice.
     """
-    return f"[bold white on red] ERR-808 [/bold white on red] [{ERR}]{safe(msg)}[/{ERR}]"
+    return (
+        f"[white on red] ERR-808 [/white on red] "
+        f"[{ERR}]{safe(msg)}[/{ERR}]"
+    )
 
 
 def warn(msg: str) -> str:
-    """Prolog-adjacent warning chrome."""
-    return f"[bold bright_blue] WARNING [/bold bright_blue] {safe(msg)}"
+    """Prolog-adjacent warning chrome — color only, no bold."""
+    return f"[bright_blue] WARNING [/bright_blue] {safe(msg)}"
 
 
 def echo_line(msg: str) -> str:
-    """ECHO mouth (red tag) — soft backflow, not always a hard fail."""
-    return f"[bold red] E C H O [/bold red]  {safe(msg)}"
+    """ECHO mouth (red tag) — soft backflow; color only, no bold."""
+    return f"[red] E C H O [/red]  {safe(msg)}"
 
 
 def typed_unix_display(created_at: str | None) -> str:
@@ -397,10 +422,12 @@ def position_memory_success(
     ref_raw = (ref or "—").strip().lstrip("#") or "—"
     # Escape [#REF] so Rich does not treat [ as markup
     ref_bracket = safe(f"[#{ref_raw}]")
-    title_s = safe((title or "").strip() or "—")
+    # Handles unbold; title pop in hard white, rest soft
     head = (
-        f"[bold green] SUCCESS [/bold green][green]:[/green]  "
-        f"{ref_bracket}[green]   Position memory updated. \"{title_s}\"[/green]"
+        f"[green] SUCCESS [/green]:  "
+        f"[{SOFT_WHITE}]{ref_bracket}   Position memory updated. \"[/{SOFT_WHITE}]"
+        f"{pop_name((title or '').strip() or '—')}"
+        f"[{SOFT_WHITE}]\"[/{SOFT_WHITE}]"
     )
     # Reprint body under ECHO (preserve line breaks; escape for Rich)
     raw = body if body is not None else ""
@@ -412,10 +439,10 @@ def position_memory_success(
     # Multi-line: tag on first line, body follows indented slightly
     lines = raw.splitlines() or ["(empty)"]
     if len(lines) == 1:
-        echo = f"[bold red] E C H O [/bold red][red]:[/red]  {safe(lines[0])}"
+        echo = f"[red] E C H O [/red][red]:[/red]  {safe(lines[0])}"
     else:
         body_block = "\n".join(f"  {safe(ln)}" for ln in lines)
-        echo = f"[bold red] E C H O [/bold red][red]:[/red]\n{body_block}"
+        echo = f"[red] E C H O [/red][red]:[/red]\n{body_block}"
     return join_blocks(head, echo, gap=1)
 
 
