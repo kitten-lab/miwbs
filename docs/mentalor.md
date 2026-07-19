@@ -84,4 +84,5 @@ ws.mint_type("concept", "the sense of Concept")   # type emerges
 # later: mint_type("place", …) → create place …
 ```
 
-Remember surface = first **where** (room) + Cycle ʞ nodes. SELF (0) stands in it; ECHO (1) shares it.
+Remember surface = first **where** (kind `where`, code WHR-…) + Cycle ʞ nodes.  
+SELF (0) stands in it; ECHO (1) shares it. **place** is a *kind of* where (`where/place`), not the root.

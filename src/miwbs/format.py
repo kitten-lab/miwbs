@@ -29,7 +29,8 @@ HARD_WHITE = "#ffffff"  # rare attention (new name after →, etc.)
 KIND_COLORS: dict[str, str] = {
     "concept": "bright_white",
     "person": "yellow",
-    "place": "bright_white",
+    "where": "bright_white",
+    "place": "bright_white",  # legacy
     "bin": "bright_cyan",
     "container": "bright_cyan",  # legacy kind color
     "thing": "bright_yellow",

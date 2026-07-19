@@ -769,7 +769,9 @@ def import_pack(
         state=state,
     )
     # Place free-standing; everything else into current place when available
-    if kind != "place" and loc:
+    from .world import is_location_kind
+
+    if not is_location_kind(kind) and loc:
         from .world import default_inner_slot, is_inner_life_kind
 
         slot = default_inner_slot(kind) if is_inner_life_kind(kind) else "interior"
@@ -891,7 +893,7 @@ def _import_tree_pack(
             if is_inner_life_kind(kind, ven.subtype if ven else None):
                 slot = default_inner_slot(kind, ven.subtype if ven else None)
             world.put_in(inst_id, parent_inst_id, slot=slot)
-        elif kind != "place" and place_instance_id:
+        elif not is_location_kind(kind) and place_instance_id:
             if is_inner_life_kind(kind, ven.subtype if ven else None):
                 slot = default_inner_slot(kind, ven.subtype if ven else None)
             else:

@@ -30,9 +30,9 @@ from .ids import (
 # Lean roots — known systems of being (see IDEAS.md design lock).
 # realm/timeline stay for layer chrome (not “adventure furniture” roots).
 KINDS = (
-    "concept",  # root of meaning; Day of Days SELF is concept
+    "concept",  # root of meaning
     "person",
-    "place",
+    "where",  # location root — space, stage, room… (place is a *kind of* where)
     "bin",
     "thing",
     "folio",
@@ -42,6 +42,9 @@ KINDS = (
     "realm",
     "timeline",
 )
+
+# Floors you can stand in / put things on (includes legacy kind=place rows)
+LOCATION_KINDS = frozenset({"where", "place"})
 
 # Contained in a person → examine/who "Inner life" (not generic Contains)
 INNER_LIFE_KINDS = frozenset({"sense"})
@@ -67,16 +70,21 @@ KIND_ALIASES: dict[str, str] = {
     "container": "bin",
     "box": "bin",
     "crate": "bin",
-    # Day of Days: "where" is the spoken root for location (engine: place)
-    "where": "place",
-    "room": "place",
-    "stage": "place",
+    # Location: place/room/stage are specializations of **where** (not the reverse)
+    "place": "where",
+    "room": "where",
+    "stage": "where",
 }
 
 # Author subtypes welcome on all adventure roots (not only a “feeling group”)
 SUBTYPE_KINDS = frozenset(
-    {"person", "place", "bin", "thing", "folio", "symbol", "sense", "event"}
+    {"person", "where", "bin", "thing", "folio", "symbol", "sense", "event"}
 )
+
+
+def is_location_kind(kind: str | None) -> bool:
+    """True if this kind is a standable floor (where, or legacy place)."""
+    return (kind or "").strip().lower() in LOCATION_KINDS
 
 # Back-compat name used in a few create/help strings
 FEELING_GROUP_KINDS = frozenset({"sense"})
@@ -178,12 +186,11 @@ def normalize_kind(
     Examples:
       book → folio/book
       feeling/longing → sense/longing
-      feeling → sense/feeling
+      place → where/place   (place is a kind of where; empty space is just where)
+      room → where/room
       archetype → person/archetype
       object → thing
-      material → thing/material
       container / box / crate → bin
-      event stays event (subtypes free: event/meeting, event/beat, …)
     """
     k = (kind or "").strip().lower()
     sub = (subtype or "").strip().lower() or None
@@ -197,6 +204,9 @@ def normalize_kind(
             elif k == "book":
                 sub = "book"
             elif k in ("feeling", "goal", "desire", "purpose"):
+                sub = k
+            elif k in ("place", "room", "stage"):
+                # specialization of where (not the root itself)
                 sub = k
             elif k == "concept":
                 sub = None
@@ -554,8 +564,8 @@ class World:
             st.pop(PORTAL_LOCK_DENY_KEY, None)
         else:
             dest = self.get_instance(place_instance_id)
-            if dest is None or dest.ven_kind != "place":
-                raise ValueError("Portal destination must be a place instance")
+            if dest is None or not is_location_kind(dest.ven_kind):
+                raise ValueError("Portal destination must be a where (location) instance")
             st[PORTAL_STATE_KEY] = place_instance_id
         self.set_instance_state(instance_id, st)
 
@@ -688,7 +698,7 @@ class World:
         holder = self.get_instance(cont[0])
         if holder is None:
             return None
-        if holder.ven_kind == "place":
+        if is_location_kind(holder.ven_kind):
             return None
         pid = self.player_id()
         if pid and holder.id == pid:
@@ -1356,7 +1366,7 @@ class World:
         seen: set[str] = set()
         for ex in self.exits(loc_id):
             dest = self.get_instance(ex["to_instance_id"])
-            if dest is None or dest.ven_kind != "place":
+            if dest is None or not is_location_kind(dest.ven_kind):
                 continue
             if dest.id in seen:
                 continue
@@ -1381,7 +1391,7 @@ class World:
         ex = self.find_exit(loc.id, key)
         if ex is not None:
             dest = self.get_instance(ex["to_instance_id"])
-            if dest is not None and dest.ven_kind == "place":
+            if dest is not None and is_location_kind(dest.ven_kind):
                 return [dest]
         # Place name among neighbors
         hits: list[InstanceView] = []
@@ -2028,8 +2038,15 @@ class World:
                 names_match(name, display) or names_match(name, r["ven_name"] or "")
             ):
                 continue
-            if kind and r["kind"] != kind:
-                continue
+            if kind:
+                want = (kind or "").strip().lower()
+                got = (r["kind"] or "").strip().lower()
+                # where/place/room queries all match location floors
+                if want in LOCATION_KINDS or want in ("room", "stage"):
+                    if got not in LOCATION_KINDS:
+                        continue
+                elif got != want:
+                    continue
             inst = self.get_instance(r["id"])
             if inst:
                 out.append(inst)
@@ -2037,9 +2054,16 @@ class World:
 
     def list_vens(self, kind: str | None = None) -> list[VenView]:
         if kind:
-            rows = self.conn.execute(
-                "SELECT id FROM vens WHERE kind = ? ORDER BY name", (kind,)
-            ).fetchall()
+            want = (kind or "").strip().lower()
+            if want in LOCATION_KINDS or want in ("room", "stage"):
+                rows = self.conn.execute(
+                    "SELECT id FROM vens WHERE kind IN ('where', 'place') "
+                    "ORDER BY name"
+                ).fetchall()
+            else:
+                rows = self.conn.execute(
+                    "SELECT id FROM vens WHERE kind = ? ORDER BY name", (want,)
+                ).fetchall()
         else:
             rows = self.conn.execute("SELECT id FROM vens ORDER BY kind, name").fetchall()
         return [self.get_ven(r["id"]) for r in rows]  # type: ignore[misc]
@@ -2099,8 +2123,8 @@ class World:
         if not pid:
             raise ValueError("No player set")
         dest = self.get_instance(to_place_instance_id)
-        if dest is None or dest.ven_kind != "place":
-            raise ValueError("Destination must be a place instance")
+        if dest is None or not is_location_kind(dest.ven_kind):
+            raise ValueError("Destination must be a where (location) instance")
         self.put_in(pid, to_place_instance_id, slot="interior")
 
     _TAKEABLE_KINDS = (
@@ -2154,16 +2178,17 @@ class World:
         ven = self.get_ven_by_slug(self.LOST_DEPT_SLUG)
         if ven is None:
             ven = self.find_ven(self.LOST_DEPT_NAME)
-        if ven is None or ven.kind != "place":
+        if ven is None or not is_location_kind(ven.kind):
             ven_id = self.create_ven(
                 self.LOST_DEPT_NAME,
-                "place",
+                "where",
                 description=(
                     "A mythic warehouse of things that slipped out of play. "
                     "Nothing is destroyed here — only shelved out of reach. "
                     "Reclaim what you still need; leave the rest."
                 ),
                 tags=["mythic", "landfill", "lost"],
+                meta={"subtype": "place"},
             )
             ven = self.get_ven(ven_id)
             assert ven is not None
@@ -2203,8 +2228,8 @@ class World:
         pid = self.player_id()
         if pid and instance_id == pid:
             raise ValueError("Cannot lose yourself")
-        if item.ven_kind == "place":
-            raise ValueError("Cannot lose a place (including Lost Dept)")
+        if is_location_kind(item.ven_kind):
+            raise ValueError("Cannot lose a where (including Lost Dept)")
         if item.ven_kind in ("realm", "timeline"):
             raise ValueError(f"Cannot lose a {item.ven_kind} layer")
         if self.is_lost_dept(instance_id):

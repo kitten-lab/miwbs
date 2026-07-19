@@ -33,6 +33,7 @@ from .world import (
     default_inner_slot,
     format_kind_label,
     is_inner_life_kind,
+    is_location_kind,
     parse_kind_spec,
 )
 
@@ -1873,12 +1874,12 @@ def _run(world: World, arg: str, *, verb: str = "run") -> CommandResult:
             ),
         )
     dest = world.get_instance(dest_id)
-    if dest is None or dest.ven_kind != "place":
+    if dest is None or not is_location_kind(dest.ven_kind):
         return CommandResult(
             False,
             fmt.err(
                 f"Portal on {display_name(app.name)} is broken "
-                f"(missing place).  portal clear {app.name}"
+                f"(missing where).  portal clear {app.name}"
             ),
         )
 
@@ -1905,8 +1906,12 @@ def _run(world: World, arg: str, *, verb: str = "run") -> CommandResult:
         dest_name=dest.name or "",
     )
     world.move_player(dest.id)
-    sub = format_kind_label("place", dest.ven_subtype) if dest.ven_subtype else "place"
-    floor_mode = holder.ven_kind == "place"
+    sub = (
+        format_kind_label(dest.ven_kind or "where", dest.ven_subtype)
+        if dest.ven_subtype
+        else (dest.ven_kind or "where")
+    )
+    floor_mode = is_location_kind(holder.ven_kind)
     if floor_mode:
         travel = fmt.hint(
             f"{v} {display_name(app.name)}  →  "
@@ -1946,11 +1951,11 @@ def _logout(world: World, arg: str) -> CommandResult:
     assert popped is not None
     ret_id = str(popped.get("return_place_id") or "").strip()
     ret = world.get_instance(ret_id) if ret_id else None
-    if ret is None or ret.ven_kind != "place":
+    if ret is None or not is_location_kind(ret.ven_kind):
         return CommandResult(
             False,
             fmt.err(
-                "Logout failed — return place is gone.  "
+                "Logout failed — return where is gone.  "
                 "You're still wherever you are; session cleared."
             ),
         )
@@ -4619,7 +4624,7 @@ def _dig(world: World, arg: str) -> str:
 
     name, realm_id, timeline_id, subtype = _parse_dig_layers(world, arg, loc)
     meta = {"subtype": subtype} if subtype else None
-    ven_id = world.create_ven(name, "place", description="", meta=meta)
+    ven_id = world.create_ven(name, "where", description="", meta=meta)
     ven = world.get_ven(ven_id)
     display = ven.name if ven else name
     inst = world.instantiate(
@@ -4635,7 +4640,7 @@ def _dig(world: World, arg: str) -> str:
     world.undo_stack.push(f"dig {display}", undo_dig)
     place = world.get_instance(inst)
     coords = world.coords_of(place) if place else None
-    kind_bit = format_kind_label("place", subtype)
+    kind_bit = format_kind_label("where", subtype)
     return fmt.join_blocks(
         fmt.ok(f"Dug · {display}"),
         fmt.hint(f"{kind_bit}  ·  instance {inst}"),
@@ -4658,7 +4663,9 @@ def _parse_dig_layers(
     # Optional leading place/subtype or place:subtype
     if tokens:
         k, sub = parse_kind_spec(tokens[0])
-        if k == "place" and (sub is not None or tokens[0].lower() == "place"):
+        if k in ("place", "where") and (
+            sub is not None or tokens[0].lower() in ("place", "where")
+        ):
             # dig place/app Name …  or dig place Name …
             subtype = sub
             i = 1
@@ -6013,7 +6020,7 @@ def _spawn(world: World, arg: str) -> str:
 
     # Auto-unique title when bare spawn would collide among reachable copies
     if not name_override:
-        if ven.kind == "place":
+        if is_location_kind(ven.kind):
             all_of_ven = world.list_instances_of_ven(ven.id)
             if all_of_ven:
                 n = len(all_of_ven) + 1
@@ -6035,9 +6042,9 @@ def _spawn(world: World, arg: str) -> str:
         realm_instance_id=loc.realm_instance_id if loc else None,
         timeline_instance_id=loc.timeline_instance_id if loc else None,
     )
-    # Places are destinations in the multiverse — do not nest them inside "here"
-    # (that made Room instances look like floor props, not go-able rooms).
-    if ven.kind != "place":
+    # Wheres are destinations — do not nest them inside "here"
+    # (that made room instances look like floor props, not go-able rooms).
+    if not is_location_kind(ven.kind):
         if loc and ven.kind != "person":
             if is_inner_life_kind(ven.kind, ven.subtype):
                 slot = default_inner_slot(ven.kind, ven.subtype)
@@ -6073,7 +6080,7 @@ def _spawn(world: World, arg: str) -> str:
             "note": display_name(inst.name),
         }
     ]
-    if loc and ven.kind != "place":
+    if loc and not is_location_kind(ven.kind):
         spawn_legs.append(
             {
                 "subject_type": "instance",
@@ -6096,10 +6103,10 @@ def _spawn(world: World, arg: str) -> str:
     ref = world.short_ref_of(inst_id)
     label = format_kind_label(ven.kind, ven.subtype)
     prime_bit = ven.code or ven.slug
-    if ven.kind == "place":
+    if is_location_kind(ven.kind):
         title = display_name(inst.name)
         return fmt.join_blocks(
-            fmt.ok(f"Spawned place · {fmt.named_ref(title, ref)}"),
+            fmt.ok(f"Spawned where · {fmt.named_ref(title, ref)}"),
             fmt.hint(
                 f"{label}  ·  prime {prime_bit}  ·  unlinked room  ·  "
                 f"story {story_when}  ·  {event_code}  ·  {inst_id}"
@@ -6174,12 +6181,14 @@ def _resolve_rename_target(
         return None, _format_ambiguous(world, key, here_matches)
 
     # Current remember-surface name (e.g. "the pressure of something")
+    from .ids import names_match
+
     surf = _remember_surface_inst(world)
     if surf is not None and names_match(key, surf.name):
         return surf, None
 
-    # Any place instance (current room or elsewhere)
-    places = world.find_instances_by_name(key, kind="place")
+    # Any where / place instance (current room or elsewhere)
+    places = world.find_instances_by_name(key, kind="where")
     if len(places) == 1:
         return places[0], None
     if len(places) > 1:
@@ -6545,8 +6554,8 @@ def _put(world: World, arg: str) -> str:
         and is_inner_life_kind(thing.ven_kind, thing.ven_subtype)
     ):
         slot = default_inner_slot(thing.ven_kind, thing.ven_subtype)
-    # Places always use interior (floor of that room)
-    if cont.ven_kind == "place" and not slot_explicit:
+    # Wheres always use interior (floor of that room)
+    if is_location_kind(cont.ven_kind) and not slot_explicit:
         slot = "interior"
     # Containers (house, box) default interior when entered as put target
     from .world import BIN_KINDS
@@ -6580,7 +6589,7 @@ def _put(world: World, arg: str) -> str:
         also_note=f"received {tname} [{slot}]",
         extra_legs=extra or None,
     )
-    if cont.ven_kind == "place":
+    if is_location_kind(cont.ven_kind):
         main = (
             f"Moved · {thing.name} → {cont.name}  ·  "
             f"story {story_when}  ·  {code}"
@@ -6595,12 +6604,12 @@ def _put(world: World, arg: str) -> str:
     portal_id = world.get_portal_to(moved.id)
     if (
         portal_id
-        and cont.ven_kind != "place"
+        and not is_location_kind(cont.ven_kind)
         and (player is None or cont.id != player.id)
         and world.install_container_of(moved.id) is not None
     ):
         dest = world.get_instance(portal_id)
-        dname = display_name(dest.name) if dest else "bound place"
+        dname = display_name(dest.name) if dest else "bound where"
         return fmt.join_blocks(
             fmt.ok(main),
             fmt.hint(

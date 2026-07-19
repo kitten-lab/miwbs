@@ -39,9 +39,13 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertEqual((by_name["SELF"]["kind"] or "").strip(), "")
         self.assertEqual(by_name["ECHO"]["code"], "1")
         self.assertEqual((by_name["ECHO"]["kind"] or "").strip(), "")
-        # First where exists (engine kind place)
+        # First where — kind where, code WHR-…
         self.assertIn("HERE", by_name)
-        self.assertEqual((by_name["HERE"]["kind"] or "").strip(), "place")
+        self.assertEqual((by_name["HERE"]["kind"] or "").strip(), "where")
+        self.assertTrue(
+            str(by_name["HERE"]["code"] or "").startswith("WHR-"),
+            msg=by_name["HERE"]["code"],
+        )
         n_inst = self.world.conn.execute(
             "SELECT COUNT(*) AS c FROM instances"
         ).fetchone()["c"]
@@ -54,7 +58,7 @@ class MentalorCycleTests(unittest.TestCase):
         self.assertIsNotNone(loc)
         self.assertIsNotNone(pid)
         self.assertNotEqual(loc.id, pid)
-        self.assertEqual(loc.ven_kind, "place")
+        self.assertEqual(loc.ven_kind, "where")
         # Room holds pressure title; SELF prime name stays SELF
         self.assertIn("pressure", (loc.name or "").lower())
         me = self.world.get_instance(pid)
@@ -111,16 +115,18 @@ class MentalorCycleTests(unittest.TestCase):
         from miwbs.format import plain
 
         allowed = mentor.allowed_kinds(self.world)
-        self.assertIn("where", allowed)
-        self.assertIn("place", allowed)  # alias
+        self.assertEqual(allowed, frozenset({"where"}))  # no synonym spam
         self.assertNotIn("person", allowed)
+        self.assertNotIn("place", allowed)  # place is alias of where, not a taught key
         r = dispatch(self.world, "create person Bob | a guy")
         self.assertIn("not taught", plain(r.message).lower())
         r2 = dispatch(self.world, "create concept Wonder | a sense of wonder")
         self.assertIn("not taught", plain(r2.message).lower())
-        # where already taught — can form another where
+        # where taught — create where or place (place folds to where/place)
         r_where = dispatch(self.world, "create where Quiet Nook | a corner")
         self.assertNotIn("not taught", plain(r_where.message).lower())
+        r_place = dispatch(self.world, "create place Alcove | a place-like where")
+        self.assertNotIn("not taught", plain(r_place.message).lower())
         # teach concept, then create works
         ws = mentor.workshop_for(self.world)
         ws.mint_type("concept", "the sense of Concept")

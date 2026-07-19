@@ -20,7 +20,8 @@ _VEN_CODE_INST_RE = re.compile(
 KIND_CODE_PREFIX: dict[str, str] = {
     "concept": "CON",
     "person": "PER",
-    "place": "PLC",
+    "where": "WHR",
+    "place": "PLC",  # legacy rows / old packs; new location primes use where→WHR
     "bin": "BIN",
     "thing": "THG",
     "folio": "FOL",

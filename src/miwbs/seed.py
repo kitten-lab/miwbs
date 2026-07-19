@@ -51,6 +51,16 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
 
     # Mode + first type before any typed prime
     cycle_mod.set_mentalor_mode(w, True)
+    # Fresh workshop file per world (do not inherit sticky ~/.aidm types)
+    import uuid
+
+    from .mentor import META_WORKSHOP_PATH, _workshop_root
+
+    set_meta(
+        conn,
+        META_WORKSHOP_PATH,
+        str(_workshop_root() / f"{uuid.uuid4().hex}.workshop.json"),
+    )
     mentor_mod.bootstrap_world_workshop(w, initial_types=("where",))
 
     # First where — the room / stage (engine kind: place via alias)

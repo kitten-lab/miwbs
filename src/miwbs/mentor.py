@@ -114,30 +114,26 @@ def allowed_kinds(world: World) -> frozenset[str]:
     Classic seeds: full KINDS table.
     """
     from . import cycle as cycle_mod
-    from .world import KIND_ALIASES, KINDS
+    from .world import KINDS
 
     if not cycle_mod.is_mentalor(world):
         return frozenset(KINDS)
     ws = workshop_for(world)
-    keys = set(ws.types.keys())
-    # where ↔ place: teach either name, allow both at create
-    if "where" in keys or "place" in keys:
-        keys.add("where")
-        keys.add("place")
-    # Also accept alias keys that fold into a taught root
-    for alias, root in KIND_ALIASES.items():
-        if root in keys:
-            keys.add(alias)
-    return frozenset(keys)
+    # Only keys actually minted — no synonym inflation in `kinds`
+    return frozenset(ws.types.keys())
 
 
 def assert_kind_allowed(world: World, kind: str) -> None:
     """Raise ValueError if kind is not mentored yet (mentalor) / unknown."""
+    from .world import normalize_kind
+
     k = (kind or "").strip().lower()
     if k in ("", "none", "untyped", "-", "ven", "0", "null"):
         return  # untyped zero-point issuance
+    # Caller may pass pre-normalized kind (create_ven) or raw (place→where)
+    root, _sub = normalize_kind(k, None)
     allowed = allowed_kinds(world)
-    if k not in allowed:
+    if root not in allowed and k not in allowed:
         from . import cycle as cycle_mod
 
         if cycle_mod.is_mentalor(world):
