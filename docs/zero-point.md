@@ -17,36 +17,102 @@ We refuse that path.
 
 ---
 
-## Kernel (what exists at true zero)
+## Core, not cast
 
-These are the only first-class verbs/systems until something is minted and attached:
+The first “room” is not furniture. It is the first sense of  
+**time / place / space / herenow** — call that surface **HERENOW** if the language holds.
+
+You do **not** need a SELF at the start.  
+SELF is a *shape you may mint later* when the writing wants a Thinker.  
+Zero is: **write the space into reality through concepts**, not “log in as a person.”
+
+ECHO/dialog mouths are also optional shapes — attach when consider-as-dialog is chosen,  
+not because the seed was lonely.
+
+---
+
+## Valence (six around a core — and why that scares you)
+
+Six is already a lot. It is also true: a small ring of access around  
+one herenow core (bereshyt → make six; carbon’s six; five-pointed valence + nucleus).
+
+That does **not** mean ship six polished product lines on day one.  
+It means: **at most six *channels*** touch the core, and each channel  
+must earn hyper-detail (errors, feedback, printouts) before the next opens.
+
+Treat “six” as a **budget**, not a feature list to complete.
+
+### Suggested valence (channels), not a cast of characters
+
+| # | Channel | Job |
+|---|---------|-----|
+| 0 | **HERENOW** | The core surface — title, body, node of the spine |
+| 1 | **Time spine** | Cycle · node (position of writing) |
+| 2 | **See** | Remember / look — face of herenow + CYC |
+| 3 | **Shape name** | Rename herenow / node title |
+| 4 | **Sculpt** | `@desc` + studio editor |
+| 5 | **Think** | Considerations / thoughts (notes; dialog only if you mint that shape) |
+| 6 | **Mint** | Name types/properties; later create/spawn **only** what was minted |
+
+Create/spawn is **not** free at zero — it opens when mint has something to issue.  
+That keeps the ring from becoming “six apps.”
+
+---
+
+## Language lab (before stringing functions)
+
+Critical: you may invent **several starting shapes of language**  
+(plain phrases, short codes, aliases) and live with them in writing  
+**before** any type is strung to old folio/place/history machinery.
+
+Phase order:
+
+```text
+A. Face language only     — words, errors, printouts, feel
+B. Mint names             — types as vocabulary, still soft
+C. Attach                 — "type mem · string to old folio"
+D. Syntax freeze          — aliases, short-hand, plain speech locked
+```
+
+Do not skip A→C. Alias hell is what happens when C runs first.
+
+Hyper-detail per item: each channel’s SUCCESS / WARN / ERR / empty states  
+are part of the language. Prefer perfecting **one** channel’s feedback  
+over enabling three half-voiced ones.
+
+---
+
+## Kernel (what may exist at true zero)
+
+Only channels that serve HERENOW + mint + time. No classic cast.
 
 | Capability | Role |
 |------------|------|
-| **Space body** | `@desc` / `@desc <<studio` on the current surface (node / space) |
-| **Space name** | `rename` the surface / node title |
-| **Node time** | Cycle · node spine (`cycle`, `node` / `n+` `n>` `n<`) |
-| **Remember** | Look at surface + face time (`remember` / `look`) |
-| **Consider** | Think with ECHO; store as **considerations** / **thoughts** (not “lore” voice) |
-| **Studio** | Buffer editor for desc and consider bodies |
-| **Minter** | Mint types / properties (workshop) — *available*, not a full catalog of KINDS |
-| **Create / spawn** | Only of **types you have minted** (and untyped 0/1 if kept) |
+| **HERENOW body** | `@desc` / studio on the current surface |
+| **HERENOW name** | `rename` surface / node title |
+| **Node time** | Cycle · node spine |
+| **See** | Remember / look — surface + face time |
+| **Considerations** | Thoughts on the surface (not “lore” voice; not yet dialog cast) |
+| **Studio** | Editor for desc and considerations |
+| **Minter** | Available — mint vocabulary; not a KINDS catalog |
+| **Create / spawn** | Only after mint; only of minted words |
 
 No dig/link/portal/history/folio/bag/map **as face verbs** until attached.  
-The classic machine may still live in the repo; zero mode **does not surface it**.
+No obligatory SELF/ECHO/HERE-as-type until **you** mint those shapes.  
+The classic machine may live in the repo; zero mode **does not surface it**.
 
 ---
 
 ## Process (how we grow)
 
 ```text
-1. WRITE in the kernel (desc, consider, nodes, mint names)
-2. MINT a type or word when thinking produces it
-3. ATTACH (ask the agent explicitly):
+1. WRITE on HERENOW (desc, considerations, nodes) — perfect face of those
+2. MINT words when thinking produces them (language lab)
+3. Try syntax/aliases in plain speech *before* function attach
+4. ATTACH only when you ask:
       "type mem  ·  string to old folio capability"
-      "type where ·  string to old place/floor"
-4. ONLY THEN wire: allowlist verb, messages, codes, tests for that slice
-5. Repeat — never bulk-reopen the whole port
+5. Wire that slice only: allowlist, messages, codes, tests
+6. Repeat — never bulk-reopen the whole port
 ```
 
 ### Attach contract (when you ask)
@@ -74,12 +140,12 @@ One attach = one slice of old code, renamed to **your** taxonomy, one consistent
 
 ---
 
-## Identity (space vs Thinker)
+## Identity (HERENOW first)
 
-- **Surface** holds title/body for the beat (node-linked).  
-- **SELF (0)** / **ECHO (1)** are untyped mouths for consider — not the syllabus of types.  
-- Face may treat you as *being* the pressure of the space without requiring one DB row for both.  
-- When you mint **where** (or refuse it forever), *then* we attach floor semantics.
+- **HERENOW** is the core: title/body/node — the first sense of herenow itself.  
+- **SELF / ECHO** are optional later shapes (Thinker / backflow), not seed obligations.  
+- Face: you write the space into reality; you need not “play as a person instance.”  
+- Floor/`where`/place semantics attach only when you mint and string them.
 
 ---
 
