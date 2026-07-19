@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-from . import PRODUCT_LONG, PRODUCT_NAME, format as fmt
+from . import PRODUCT_NAME, format as fmt
 from .commands import dispatch
 from .db import connect, get_meta, init_schema, migrate_schema
 from .history import CommandHistory
@@ -618,18 +618,18 @@ def run_textual(world: World, world_path: Path) -> None:
             color: #c8c8d0;
         }}
         #header-left {{
-            width: 1fr;
+            width: 2fr;
             content-align: left middle;
             color: #c8c8d0;
         }}
         #header-center {{
-            width: 3fr;
+            width: 1fr;
             content-align: center middle;
             text-style: bold;
             color: #e8e8ec;
         }}
         #header-right {{
-            width: 1fr;
+            width: 2fr;
             content-align: right middle;
             color: #5ec8d8;
         }}
@@ -670,8 +670,8 @@ def run_textual(world: World, world_path: Path) -> None:
             yield Footer()
 
         def on_mount(self) -> None:
-            # OS window title — product only (no db filename in chrome)
-            self.title = PRODUCT_LONG
+            # OS window title — short name only (no thesis subtitle)
+            self.title = "miwbs"
             self.sub_title = ""
             self._refresh_studio_header()
             # Same as clear: empty log — no tips banner, no auto-look
@@ -681,35 +681,64 @@ def run_textual(world: World, world_path: Path) -> None:
             log.write("")
             self.query_one("#cmd", HistoryInput).focus()
 
+        def _room_title_for_header(self) -> str:
+            """Current room / remember-surface title for the chrome bar."""
+            from . import cycle as cycle_mod
+            from .ids import display_name
+
+            if cycle_mod.is_mentalor(world):
+                st = cycle_mod.load_state(world)
+                node = cycle_mod.current_node(st)
+                if node and (node.title or "").strip():
+                    return display_name(node.title.strip())
+                sid = cycle_mod.remember_surface_id(world)
+                inst = world.get_instance(sid) if sid else None
+                if inst is not None:
+                    ov = world.get_name_override(sid)
+                    if ov and str(ov).strip():
+                        return display_name(str(ov).strip())
+                    if inst.name:
+                        return display_name(inst.name)
+                return ""
+            loc = world.player_location()
+            if loc is None:
+                return ""
+            return display_name(loc.name) if loc.name else ""
+
         def _refresh_studio_header(self) -> None:
             """
             Persistent top bar:
-              left   seed name only (e.g. Day of Days)
-              center full product name
-              right  @ cycle face (mentalor) or place (classic)
+              left   seed · room title (e.g. Day of Days · the pressure of something)
+              center miwbs (short — not the long product slug)
+              right  @ cycle face (mentalor) or bare @ when classic (room is on left)
             """
             from . import cycle as cycle_mod
-            from .ids import display_name
 
             wname = (
                 get_meta(world.conn, "world_name", world_path.name) or world_path.name
             )
             seed = _seed_label(str(wname), world_path)
+            room = self._room_title_for_header()
 
             left = self.query_one("#header-left", Static)
             center = self.query_one("#header-center", Static)
             right = self.query_one("#header-right", Static)
-            left.update(fmt.safe(seed))
-            center.update(f"[bold]{PRODUCT_LONG}[/bold]")
+
+            if room and room.casefold() != seed.casefold():
+                left.update(
+                    f"{fmt.safe(seed)}  [dim]·[/dim]  {fmt.safe(room)}"
+                )
+            else:
+                left.update(fmt.safe(seed))
+            center.update("[bold]miwbs[/bold]")
 
             if cycle_mod.is_mentalor(world):
                 st = cycle_mod.load_state(world)
                 face = cycle_mod.current_face(st)
                 right.update(f"[dim]@[/dim] {fmt.safe(face)}")
             else:
-                loc = world.player_location()
-                loc_name = display_name(loc.name) if loc else "—"
-                right.update(f"[dim]@[/dim] {fmt.safe(loc_name)}")
+                # Classic: room already on left; right stays a light @ mark
+                right.update("[dim]@[/dim]" if room else "[dim]@[/dim] —")
 
         def _book_reader_is_top(self) -> bool:
             """True when a soft reader (folio or wiki) is the top modal."""
