@@ -407,18 +407,18 @@ def run_repl(world: World, world_path: Path) -> None:
     except ImportError:
         session = None
 
-    def read_prompt(prefix: str = "›") -> str:
+    def read_prompt(prefix: str = ">|") -> str:
         if session is not None:
             from prompt_toolkit.formatted_text import HTML
 
-            return session.prompt(HTML(f"<ansicyan><b>{prefix}</b></ansicyan> "))
-        return console.input(f"[bright_cyan]{prefix}[/bright_cyan] ")
+            return session.prompt(HTML(f"<ansiyellow><b>{prefix}</b></ansiyellow> "))
+        return console.input(f"[bold yellow]{prefix}[/bold yellow] ")
 
     while True:
         console.print(Rule(style="dim"))
         console.print(format_strip(world))
         try:
-            line = read_prompt("›")
+            line = read_prompt(">|")
         except (EOFError, KeyboardInterrupt):
             console.print()
             console.print(fmt.hint("Bye."))
@@ -704,10 +704,28 @@ def run_textual(world: World, world_path: Path) -> None:
             scrollbar-background: {TUI_BG};
             scrollbar-color: {TUI_BORDER};
         }}
-        #cmd {{
+        #cmd-bar {{
             dock: bottom;
+            height: 3;
             margin: 0 0;
             border: solid {TUI_BORDER_ACCENT};
+            background: {TUI_INPUT_BG};
+            layout: horizontal;
+        }}
+        #cmd-prompt {{
+            width: 3;
+            height: 3;
+            content-align: center middle;
+            color: #f0d060;
+            text-style: bold;
+            background: {TUI_INPUT_BG};
+            padding: 0 0;
+        }}
+        #cmd {{
+            width: 1fr;
+            height: 3;
+            margin: 0 0;
+            border: none;
             background: {TUI_INPUT_BG};
             color: #e8e8ec;
             padding: 0 1;
@@ -780,10 +798,12 @@ def run_textual(world: World, world_path: Path) -> None:
                     wrap=True,
                     auto_scroll=True,
                 )
-            yield HistoryInput(
-                placeholder="",
-                id="cmd",
-            )
+            with Horizontal(id="cmd-bar"):
+                yield Static(">|", id="cmd-prompt", markup=False)
+                yield HistoryInput(
+                    placeholder="",
+                    id="cmd",
+                )
             yield Footer()
 
         def on_mount(self) -> None:
@@ -947,7 +967,7 @@ def run_textual(world: World, world_path: Path) -> None:
                 # One compact rule line only — no blank-line padding around it
                 log.write(fmt.turn_separator())
             self._turn += 1
-            log.write(f"[bright_cyan]›[/bright_cyan] {fmt.safe(line)}")
+            log.write(f"[bold yellow]>|[/bold yellow] {fmt.safe(line)}")
             # One empty line between command echo and result (lists, look, paths, …)
             if message:
                 log.write("")
