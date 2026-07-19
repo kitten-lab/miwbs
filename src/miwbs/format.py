@@ -349,21 +349,36 @@ def skyline_history_entry(
     """
     One history leg in the SKYLINE report::
 
-          > HST-001 HISTORY TYPE: rename
-           NOTATION: old → new
-           TIMEMARK: CYC ʞ · U1784435327
+          > HST-001 HISTORY TYPE: [rename]
+            NOTATION: old → new
+            TIMEMARK: CYC ʞ · u1784435327
+
+    ``>`` and the verb in ``[]`` are skyline yellow; NOTATION/TIMEMARK
+    labels soft-white, bodies dim. Nested fields align under HST-…
     """
     code = (event_code or "—").strip() or "—"
     v = (verb or "record").strip() or "record"
     note = (notation or "").strip() or "—"
     when = (timemark or "").strip() or "—"
-    return "\n".join(
-        [
-            f"  [{SOFT_WHITE}]> {safe(code)} HISTORY TYPE: {safe(v)}[/{SOFT_WHITE}]",
-            f"   [dim]NOTATION: {safe(note)}[/dim]",
-            f"   [dim]TIMEMARK: {safe(when)}[/dim]",
-        ]
+    y = "bright_yellow"
+    # two spaces, yellow >, soft code + label, yellow [verb]
+    # Escape opening [ so Rich does not treat [rename] as a style tag
+    verb_pop = f"[{y}]\\[{safe(v)}][/{y}]"
+    head = (
+        f"  [{y}]>[/{y}] "
+        f"[{SOFT_WHITE}]{safe(code)} HISTORY TYPE: [/{SOFT_WHITE}]"
+        f"{verb_pop}"
     )
+    # four spaces — under the HST code (after ``> ``)
+    note_line = (
+        f"    [{SOFT_WHITE}]NOTATION:[/{SOFT_WHITE}] "
+        f"[dim]{safe(note)}[/dim]"
+    )
+    time_line = (
+        f"    [{SOFT_WHITE}]TIMEMARK:[/{SOFT_WHITE}] "
+        f"[dim]{safe(when)}[/dim]"
+    )
+    return "\n".join([head, note_line, time_line])
 
 
 def skyline_history_report(
@@ -373,7 +388,8 @@ def skyline_history_report(
     """
     Full history readout::
 
-        SKYLINE  ACCESS HISTORY FOR SELF-0001 {title}
+        SKYLINE  ACCESS HISTORY FOR SELF-0001 [title]
+
           > HST-001 …
         SKYLINE  RECORDS RECEIVED. END OF REPORT.
     """
@@ -382,11 +398,12 @@ def skyline_history_report(
         return join_blocks(
             head,
             skyline_line("NO RECORDS. END OF REPORT."),
-            gap=0,
+            gap=1,
         )
     body = "\n".join(entry_blocks)
     foot = skyline_line("RECORDS RECEIVED. END OF REPORT.")
-    return f"{head}\n{body}\n\n{foot}"
+    # blank line after ACCESS header, blank before footer
+    return f"{head}\n\n{body}\n\n{foot}"
 
 
 def success_with_skyline(

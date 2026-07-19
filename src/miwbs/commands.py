@@ -5560,10 +5560,10 @@ def _history(world: World, arg: str) -> str:
         """
         SKYLINE history report::
 
-            SKYLINE  ACCESS HISTORY FOR SELF-0001 {title}
-              > HST-001 HISTORY TYPE: rename
-               NOTATION: …
-               TIMEMARK: CYC ʞ · U…
+            SKYLINE  ACCESS HISTORY FOR SELF-0001 [title]
+              > HST-001 HISTORY TYPE: [rename]
+                NOTATION: …
+                TIMEMARK: CYC ʞ · u…
             SKYLINE  RECORDS RECEIVED. END OF REPORT.
         """
         blocks: list[str] = []
@@ -5579,7 +5579,7 @@ def _history(world: World, arg: str) -> str:
             place = (pn or "").strip()
             face = (tn or "").strip()
             sw = (r["story_when"] or "@unknown").strip() or "@unknown"
-            unix = fmt.skyline_unix(r["created_at"] or "").upper()
+            unix = fmt.skyline_unix(r["created_at"] or "")
             bits: list[str] = []
             # Mentalor face already encodes where; skip place if it matches face
             if place and place != face and not face.startswith("CYC "):
@@ -5608,7 +5608,7 @@ def _history(world: World, arg: str) -> str:
     def _access_for_instance(inst) -> str:
         ref = (world.short_ref_of(inst.id) or "").strip().lstrip("#") or "—"
         title = dname(inst.name)
-        return f"{ref} {{{title}}}"
+        return f"{ref} [{title}]"
 
     if event_code:
         rows = world.history_for_event(event_code)
@@ -5652,7 +5652,7 @@ def _history(world: World, arg: str) -> str:
         if not ven:
             return fmt.err(f"No VEN matching {target!r}.")
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"VEN {ven.slug} {{{ven.name}}}", rows)
+        return _format_entries(f"VEN {ven.slug} [{ven.name}]", rows)
 
     if low.startswith("on "):
         target = arg[3:].strip()
@@ -5669,7 +5669,7 @@ def _history(world: World, arg: str) -> str:
     ven = world.find_ven(arg)
     if ven is not None:
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"VEN {ven.slug} {{{ven.name}}}", rows)
+        return _format_entries(f"VEN {ven.slug} [{ven.name}]", rows)
     return fmt.err(
         f"No history subject matching {arg!r}.  "
         f"Try: history on <thing>  ·  history me  ·  history here  ·  "
