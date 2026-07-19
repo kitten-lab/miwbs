@@ -422,7 +422,8 @@ def skyline_history_report(
             skyline_line("NO RECORDS. END OF REPORT."),
             gap=1,
         )
-    body = "\n".join(entry_blocks)
+    # Blank line between each history leg
+    body = "\n\n".join(entry_blocks)
     foot = skyline_line("RECORDS RECEIVED. END OF REPORT.")
     # blank line after ACCESS header, blank before footer
     return f"{head}\n\n{body}\n\n{foot}"
