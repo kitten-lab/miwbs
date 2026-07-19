@@ -451,8 +451,16 @@ def build_parser() -> argparse.ArgumentParser:
         "world",
         nargs="?",
         type=Path,
-        default=DEFAULT_WORLD,
-        help="Path to world.db",
+        default=None,
+        help="Path to world.db (positional; same as --world)",
+    )
+    p.add_argument(
+        "--world",
+        "-w",
+        dest="world_opt",
+        type=Path,
+        default=None,
+        help="Path to world.db / worldshot (e.g. core-tests/v0.1.world.db)",
     )
     p.add_argument("--reseed", action="store_true", help="Wipe and reseed")
     p.add_argument(
@@ -476,7 +484,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    path = Path(args.world)
+    # --world wins; else positional; else default day-of-days path
+    path = args.world_opt or args.world or DEFAULT_WORLD
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     world = ensure_world(path, reseed=args.reseed, seed=args.seed)
     if args.repl:

@@ -12,6 +12,11 @@ pip install -e .
 python -m miwbs --reseed --textual
 # or plain REPL:
 python -m miwbs --reseed --repl
+# worldshots / named worlds:
+python -m miwbs --world core-tests/v0.1.world.db
+python -m miwbs -w core-tests/v0.1.world.db --reseed
+# positional still works:
+python -m miwbs path/to/shot.world.db
 ```
 
 World file default: `worlds/day-of-days.world.db`  
