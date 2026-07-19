@@ -169,6 +169,6 @@ def format_histories_stored(crate: Crate) -> str:
 
 
 def format_echo_considered(body: str) -> str:
-    """ECHO: You considered: …"""
+    """ECHO: <body> — mouth only, no 'you considered' frame."""
     b = (body or "").strip() or "—"
-    return f"ECHO: You considered: {b}"
+    return f"ECHO: {b}"

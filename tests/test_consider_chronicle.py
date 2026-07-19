@@ -29,7 +29,7 @@ class ConsiderChronicleTests(unittest.TestCase):
         r = dispatch(self.world, "consider I am somewhere.")
         self.assertTrue(r.ok, msg=r.message)
         text = plain(r.message)
-        self.assertIn("ECHO: You considered: I am somewhere.", text)
+        self.assertIn("ECHO: I am somewhere.", text)
         self.assertIn("HISTORIES STORED:", text)
         self.assertIn("CRATE cUID:", text)
         self.assertIn("TPS tUID:", text)
