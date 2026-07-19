@@ -1,4 +1,4 @@
-"""Parse << / <<studio openers for desc, book page, and lore."""
+"""Parse << / <<studio openers for desc, book page, lore, and consider."""
 
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ def parse_multiline_opener(line: str) -> MultilineSession | None:
       lore add … <<[studio]
       lore on <match> add … <<[studio]
       lore ven <name> add … <<[studio]
+      consider <<studio  ·  consider -t title <<studio
     """
     s = line.strip()
     if not s or "<<" not in s:
@@ -55,6 +56,10 @@ def parse_multiline_opener(line: str) -> MultilineSession | None:
         return _parse_book(s)
     if low.startswith("lore "):
         return _parse_lore(s)
+    if low == "consider" or low.startswith("consider ") or low.startswith(
+        "wonder "
+    ) or low == "wonder":
+        return _parse_consider(s)
     return None
 
 
@@ -100,6 +105,39 @@ def _parse_book(s: str) -> MultilineSession | None:
         kind="book_page",
         studio=bool(meta.get("studio")),
         book_meta=meta,
+    )
+    sess.title = editor_title_for(sess)
+    return sess
+
+
+def _parse_consider(s: str) -> MultilineSession | None:
+    """
+    consider <<studio
+    consider -t Opening <<studio
+    consider I start here <<   (prefix becomes seed text? no — flags only in rest)
+    """
+    # strip leading consider / wonder
+    low = s.lower()
+    if low.startswith("consider"):
+        rest = s[len("consider") :].strip()
+    elif low.startswith("wonder"):
+        rest = s[len("wonder") :].strip()
+    else:
+        return None
+    stripped = _strip_heredoc(rest if rest else "<<studio")
+    if stripped is None:
+        low_r = rest.lower().strip()
+        if low_r in ("<<", "<<studio", "{", "{studio"):
+            studio = "studio" in low_r
+            sess = MultilineSession(kind="consider", studio=studio, consider_rest="")
+            sess.title = editor_title_for(sess)
+            return sess
+        return None
+    head, studio = stripped
+    sess = MultilineSession(
+        kind="consider",
+        studio=studio,
+        consider_rest=head.strip(),
     )
     sess.title = editor_title_for(sess)
     return sess
@@ -324,7 +362,52 @@ def commit_multiline_session(
         return result
     if session.kind == "lore":
         return _commit_lore(world, session, body)
+    if session.kind == "consider":
+        return _commit_consider(world, session, body)
     return CommandResult(True, fmt.err(f"Unknown multiline kind {session.kind!r}"))
+
+
+def _commit_consider(world, session: MultilineSession, body: str):
+    """Studio/plain buffer → one consideration crate (writer null)."""
+    from . import chronicle as ch
+    from .argflags import CONSIDER_FLAG_ALIASES, parse_named_flags
+    from .commands import CommandResult
+    from . import format as fmt
+
+    body = (body or "").strip()
+    if not body:
+        return CommandResult(True, fmt.hint("Empty buffer; cancelled."))
+
+    title = ""
+    detail = ""
+    event_unix: int | None = None
+    rest = (session.consider_rest or "").strip()
+    if rest:
+        parsed = parse_named_flags(rest, aliases=CONSIDER_FLAG_ALIASES)
+        if not parsed.error:
+            title = parsed.get("title")
+            detail = parsed.get("detail")
+            unix_raw = parsed.get("unix")
+            # leftover positionals as optional title if -t not set
+            if not title and parsed.positionals:
+                title = " ".join(parsed.positionals).strip()
+            if unix_raw:
+                try:
+                    event_unix = int(str(unix_raw).strip().lstrip("uU"))
+                except ValueError:
+                    pass
+
+    crate = ch.append_consideration(
+        world,
+        body=body,
+        title=title,
+        detail=detail,
+        event_unix=event_unix,
+        writer=None,
+    )
+    echo = ch.format_echo_considered(body)
+    hist = ch.format_histories_stored(crate)
+    return CommandResult(True, f"{echo}\n\n{hist}")
 
 
 def _apply_book_page_title(world, session: MultilineSession, page_title: str) -> str:

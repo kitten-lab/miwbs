@@ -68,6 +68,31 @@ class ConsiderChronicleTests(unittest.TestCase):
         self.assertEqual(c.title, "Opening")
         self.assertEqual(c.detail, "a soft line")
 
+    def test_studio_opener_not_stored_as_body(self) -> None:
+        from miwbs.multiline_open import (
+            commit_multiline_session,
+            parse_multiline_opener,
+        )
+
+        ml = parse_multiline_opener("consider <<studio")
+        self.assertIsNotNone(ml)
+        assert ml is not None
+        self.assertEqual(ml.kind, "consider")
+        self.assertTrue(ml.studio)
+        # Must not land as a crate via one-line dispatch
+        r = dispatch(self.world, "consider <<studio")
+        self.assertIn("studio", plain(r.message).lower())
+        self.assertEqual(len(ch.load_crates(self.world)), 0)
+        # Commit path stores real body
+        result = commit_multiline_session(
+            self.world, ml, "Kras wanted the studio."
+        )
+        self.assertTrue(result.ok)
+        self.assertIn("Kras wanted the studio.", plain(result.message))
+        crates = ch.load_crates(self.world)
+        self.assertEqual(len(crates), 1)
+        self.assertEqual(crates[0].body, "Kras wanted the studio.")
+
 
 if __name__ == "__main__":
     unittest.main()

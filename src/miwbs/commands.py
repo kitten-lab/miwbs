@@ -519,8 +519,12 @@ def _consider_herenow(world: World, arg: str) -> str:
     if not body:
         return fmt.hint(
             "consider <text>  ·  -t title  -d detail  -u <unix>\n"
-            "  e.g. consider I am somewhere  ·  consider I am somewhere -u -100000000"
+            "  e.g. consider I am somewhere  ·  consider I am somewhere -u -100000000\n"
+            "  studio: consider <<studio"
         )
+    # Guard: heredoc openers must go through the editor, not the note store
+    if body.lower().strip() in ("<<", "<<studio", "{", "{studio}"):
+        return fmt.hint("Open studio with:  consider <<studio")
 
     event_unix: int | None = None
     if unix_raw:
