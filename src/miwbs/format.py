@@ -466,6 +466,37 @@ def warn(msg: str) -> str:
     return f"[bright_blue] WARNING [/bright_blue] {safe(msg)}"
 
 
+def warn01_line(body: str) -> str:
+    """
+    Soft warning handle (not bold)::
+
+        WARN-01  MISSING REQUEST. PRINTING HELPER....
+    """
+    return (
+        f"[bright_yellow] WARN-01 [/bright_yellow] "
+        f"[{SOFT_WHITE}]{safe(body)}[/{SOFT_WHITE}]"
+    )
+
+
+def history_missing_request_help() -> str:
+    """
+    Bare ``history`` with no subject — WARN-01 + helper frame.
+    """
+    rule = "  " + ("=" * 66)
+    sw = SOFT_WHITE
+    lines = [
+        warn01_line("MISSING REQUEST. PRINTING HELPER...."),
+        f"[dim]{rule}[/dim]",
+        f"   [{sw}]For researching the history of an item. Not all histories may be[/{sw}]",
+        f"   [{sw}]properly recorded. Records department is improving each day![/{sw}]",
+        f"     [{sw}]Suggested uses: history on <thing>[/{sw}]",
+        f"   [{sw}]Search <thing> by code, name, ven.[/{sw}]",
+        f"     [{sw}]Also: history me  ·  history here  ·  history HST-001[/{sw}]",
+        f"[dim]{rule}[/dim]",
+    ]
+    return "\n".join(lines)
+
+
 def echo_line(msg: str) -> str:
     """ECHO mouth (red tag) — soft backflow; color only, no bold."""
     return f"[red] E C H O [/red]  {safe(msg)}"

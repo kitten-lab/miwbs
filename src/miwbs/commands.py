@@ -5472,12 +5472,7 @@ def _history(world: World, arg: str) -> str:
     low = arg.lower()
 
     if not arg:
-        return fmt.hint(
-            "Usage: history nodes  ·  history here  ·  history me  ·  "
-            "history on <thing>  ·  history ven <prime>  ·  history HST-001\n"
-            "  Shared event codes (HST-NNN) link put/receive, take/give, etc.\n"
-            "  Story when:  … when @3  ·  --when 0  ·  default @unknown"
-        )
+        return fmt.history_missing_request_help()
 
     if low in ("nodes", "node"):
         loc = world.player_location()
