@@ -1,38 +1,24 @@
-"""Session-only undo stack for the last builder mutations."""
+"""Minimal undo stack stub (zero point does not surface undo yet)."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .world import World
-
-
-@dataclass
-class UndoEntry:
-    summary: str
-    apply: Callable[["World"], None]
+from typing import Any, Callable
 
 
 class UndoStack:
-    def __init__(self, max_entries: int = 50) -> None:
-        self._items: list[UndoEntry] = []
-        self._max = max_entries
+    def __init__(self) -> None:
+        self._items: list[tuple[str, Callable[..., Any]]] = []
+
+    def push(self, label: str, fn: Callable[..., Any]) -> None:
+        self._items.append((label, fn))
+
+    def pop(self) -> tuple[str, Callable[..., Any]] | None:
+        if not self._items:
+            return None
+        return self._items.pop()
+
+    def clear(self) -> None:
+        self._items.clear()
 
     def __len__(self) -> int:
         return len(self._items)
-
-    def push(self, summary: str, apply: Callable[["World"], None]) -> None:
-        self._items.append(UndoEntry(summary=summary, apply=apply))
-        if len(self._items) > self._max:
-            self._items = self._items[-self._max :]
-
-    def undo(self, world: "World") -> str:
-        """Pop and apply the last inverse. Returns summary of what was undone."""
-        if not self._items:
-            raise ValueError("Nothing to undo")
-        entry = self._items.pop()
-        entry.apply(world)
-        return entry.summary

@@ -6,8 +6,6 @@ import re
 import shlex
 from dataclasses import dataclass, field
 
-from .story_when import normalize_story_when
-
 # Long and short names → canonical key
 _FLAG_ALIASES: dict[str, str] = {
     "type": "type",
@@ -202,9 +200,7 @@ def parse_named_flags(
 
 
 def story_when_from_flag(raw: str | None) -> tuple[str, int | None]:
-    """
-    Normalize ``--when`` values: ``0``, ``@0``, ``unknown``, ``@unknown``.
-    """
+    """Legacy helper kept for future attach — simple @N / unknown only."""
     s = (raw or "").strip()
     if not s:
         return "@unknown", None
@@ -212,7 +208,6 @@ def story_when_from_flag(raw: str | None) -> tuple[str, int | None]:
         return f"@{int(s)}", int(s)
     if s.lower() in ("unknown", "@unknown"):
         return "@unknown", None
-    if s.startswith("@"):
-        return normalize_story_when(s)
-    # freeform not a node
-    return normalize_story_when(s)
+    if s.startswith("@") and s[1:].isdigit():
+        return f"@{int(s[1:])}", int(s[1:])
+    return "@unknown", None

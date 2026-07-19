@@ -1,58 +1,47 @@
-# MIWBS
+# MIWBS — zero point
 
-**Multidimensional Interactive World Builder Studio**
+**Day of Days** kernel: HERENOW + `consider` → crate / TPS chronicle.
 
-Cute like webs, pocket-internet, old WBS chat rooms — and the first name (World Builder Studio) expanded to the multidimensional surface plan.
+Full studio port lives in **world-studio** (and git branch `archive/full-port-before-strip`).  
+We re-attach capabilities only when you mint a word and ask for a string.
+
+## Run
+
+```bash
+pip install -e .
+python -m miwbs --reseed --textual
+# or plain REPL:
+python -m miwbs --reseed --repl
+```
+
+World file default: `worlds/day-of-days.world.db`  
+Worldshots: `core-tests/`
+
+## Open verbs
+
+| Command | Role |
+|---------|------|
+| `consider <text>` | Store a consideration |
+| `consider -d <text>` | Same body via flag |
+| `consider … -e <unix>` | Event time |
+| `consider <<studio` | Studio body |
+| `consider` | List |
+| `clear` · `quit` · `help` | Chrome |
+
+## Docs
+
+- [docs/zero-point.md](docs/zero-point.md) — process (kernel → mint → attach)
+- [docs/mentalor.md](docs/mentalor.md) — time spine notes
+
+## Layout
 
 ```text
-miwbs
+src/miwbs/
+  chronicle.py   crates + TPS
+  commands.py    zero allowlist
+  seed.py        HERENOW only
+  cycle.py       soft time node
+  cli.py         TUI / REPL
+  world.py       VEN/instance engine (still large; slim later)
+  …
 ```
-
-## Fork note
-
-| Repo | Role |
-|------|------|
-| `C:\Builds\world-studio` | **Classic WBS** — leave intact, still runnable; small worlds stay there |
-| `C:\Builds\miwbs` | **This instrument** — mentalor-first, Cycle · node time spine |
-
-No machine import from classic worlds. Remember by hand if anything matters. Fragmentation there is not a migration project.
-
-Package: `miwbs` · console: `miwbs` · default world: `worlds/day-of-days.world.db`
-
-## First stage — mentalor / Day of Days
-
-You are the **Thinker** in the pressure of something. Time is not realm/timeline furniture.
-
-| Idea | Face |
-|------|------|
-| Cycle ʞ | **Day of Days** · Ancient of Days (before numbered days) |
-| Cycle 0, 1, … | Days among days |
-| Node path | Face: `CYC ʞ` start (just kras) · `CYC ʞ.1` … · before 0 |
-| remember | Alias of look · `OBSERVING:` cyan title · dim `CYC ʞ` |
-| @desc <<studio | Sculpt **this node’s** body |
-| node + / next / prev | Stream (folio muscle memory) |
-| consider SELF \| … | Self-dialog; ECHO replies to self; stored as **considerations** |
-
-Onion skin: later. Gradient Maker / operative properties: longer goal. Verbs from classic stay available; empty has no Who to talk to yet — that is fine.
-
-Doctrine: [docs/mentalor.md](docs/mentalor.md)
-
-## Install
-
-```powershell
-cd C:\Builds\miwbs
-py -3.12 -m pip install -e .
-miwbs
-# reseed Day of Days:
-miwbs --reseed --seed mentalor
-```
-
-Classic seeds still exist (`story`, `void`, `bootstrap`, …) for experiments — default is **mentalor**.
-
-## Process
-
-1. Roleplay thinking into the black box (`remember`, `@desc`, `consider`).  
-2. Move on the cycle/node stream as narrative expands.  
-3. When a story beat needs a new joint, bring that residue here for code — do not pre-build the universe.
-
-Sibling production sketch: `C:\Builds\ven-minter` (VEN Mentor) — optional; MIWBS is home.
