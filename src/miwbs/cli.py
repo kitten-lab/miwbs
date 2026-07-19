@@ -612,26 +612,21 @@ def run_textual(world: World, world_path: Path) -> None:
             padding: 0 1;
             layout: horizontal;
         }}
-        #header-left, #header-center, #header-right {{
+        #header-left, #header-right {{
             height: 3;
             content-align: center middle;
             color: #c8c8d0;
         }}
         #header-left {{
-            width: 2fr;
-            content-align: left middle;
-            color: #c8c8d0;
-        }}
-        #header-center {{
             width: 1fr;
-            content-align: center middle;
+            content-align: left middle;
             text-style: bold;
             color: #e8e8ec;
         }}
         #header-right {{
-            width: 2fr;
+            width: 4fr;
             content-align: right middle;
-            color: #5ec8d8;
+            color: #c8c8d0;
         }}
         Footer {{
             background: {TUI_BG};
@@ -653,7 +648,6 @@ def run_textual(world: World, world_path: Path) -> None:
         def compose(self) -> ComposeResult:
             with Horizontal(id="studio-header"):
                 yield Static("", id="header-left", markup=True)
-                yield Static("", id="header-center", markup=True)
                 yield Static("", id="header-right", markup=True)
             with Horizontal(id="body"):
                 yield RichLog(
@@ -708,9 +702,9 @@ def run_textual(world: World, world_path: Path) -> None:
         def _refresh_studio_header(self) -> None:
             """
             Persistent top bar:
-              left   seed · room title (e.g. Day of Days · the pressure of something)
-              center miwbs (short — not the long product slug)
-              right  @ cycle face (mentalor) or bare @ when classic (room is on left)
+              left   miwbs
+              right  seed | room @ CYC face
+                     room omitted when it matches seed (no Day of Days | Day of Days)
             """
             from . import cycle as cycle_mod
 
@@ -721,24 +715,27 @@ def run_textual(world: World, world_path: Path) -> None:
             room = self._room_title_for_header()
 
             left = self.query_one("#header-left", Static)
-            center = self.query_one("#header-center", Static)
             right = self.query_one("#header-right", Static)
+            left.update("[bold]miwbs[/bold]")
 
+            # seed [| room] @ face-or-place
+            parts: list[str] = [fmt.safe(seed)]
             if room and room.casefold() != seed.casefold():
-                left.update(
-                    f"{fmt.safe(seed)}  [dim]·[/dim]  {fmt.safe(room)}"
-                )
-            else:
-                left.update(fmt.safe(seed))
-            center.update("[bold]miwbs[/bold]")
+                parts.append(fmt.safe(room))
+            mid = "  [dim]|[/dim]  ".join(parts)
 
             if cycle_mod.is_mentalor(world):
                 st = cycle_mod.load_state(world)
                 face = cycle_mod.current_face(st)
-                right.update(f"[dim]@[/dim] {fmt.safe(face)}")
+                right.update(f"{mid}  [dim]@[/dim]  [{TUI_BORDER_ACCENT}]{fmt.safe(face)}[/{TUI_BORDER_ACCENT}]")
             else:
-                # Classic: room already on left; right stays a light @ mark
-                right.update("[dim]@[/dim]" if room else "[dim]@[/dim] —")
+                # Classic: @ is the place when room was folded into mid, else bare mark
+                if room and room.casefold() != seed.casefold():
+                    right.update(f"{mid}  [dim]@[/dim]")
+                elif room:
+                    right.update(f"{mid}  [dim]@[/dim]  {fmt.safe(room)}")
+                else:
+                    right.update(f"{mid}  [dim]@[/dim]  —")
 
         def _book_reader_is_top(self) -> bool:
             """True when a soft reader (folio or wiki) is the top modal."""
