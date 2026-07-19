@@ -331,6 +331,64 @@ def skyline_line(body: str) -> str:
     )
 
 
+def skyline_soft(body: str) -> str:
+    """SKYLINE handle + soft-white body (access headers, primary skyline)."""
+    return (
+        f"[bright_yellow] SKYLINE [/bright_yellow] "
+        f"[{SOFT_WHITE}]{safe(body)}[/{SOFT_WHITE}]"
+    )
+
+
+def skyline_history_entry(
+    *,
+    event_code: str,
+    verb: str,
+    notation: str,
+    timemark: str,
+) -> str:
+    """
+    One history leg in the SKYLINE report::
+
+          > HST-001 HISTORY TYPE: rename
+           NOTATION: old → new
+           TIMEMARK: CYC ʞ · U1784435327
+    """
+    code = (event_code or "—").strip() or "—"
+    v = (verb or "record").strip() or "record"
+    note = (notation or "").strip() or "—"
+    when = (timemark or "").strip() or "—"
+    return "\n".join(
+        [
+            f"  [{SOFT_WHITE}]> {safe(code)} HISTORY TYPE: {safe(v)}[/{SOFT_WHITE}]",
+            f"   [dim]NOTATION: {safe(note)}[/dim]",
+            f"   [dim]TIMEMARK: {safe(when)}[/dim]",
+        ]
+    )
+
+
+def skyline_history_report(
+    access_for: str,
+    entry_blocks: list[str],
+) -> str:
+    """
+    Full history readout::
+
+        SKYLINE  ACCESS HISTORY FOR SELF-0001 {title}
+          > HST-001 …
+        SKYLINE  RECORDS RECEIVED. END OF REPORT.
+    """
+    head = skyline_soft(f"ACCESS HISTORY FOR {access_for}")
+    if not entry_blocks:
+        return join_blocks(
+            head,
+            skyline_line("NO RECORDS. END OF REPORT."),
+            gap=0,
+        )
+    body = "\n".join(entry_blocks)
+    foot = skyline_line("RECORDS RECEIVED. END OF REPORT.")
+    return f"{head}\n{body}\n\n{foot}"
+
+
 def success_with_skyline(
     success_body: str, skyline_body: str, *, raw_success: bool = False
 ) -> str:

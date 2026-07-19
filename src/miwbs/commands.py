@@ -5466,7 +5466,6 @@ def _history(world: World, arg: str) -> str:
     history event HST-001    — all legs of one shared event
     history HST-001          — same as event
     """
-    from .story_when import format_history_line
     from .ids import display_name as dname, parse_history_event_code
 
     arg = (arg or "").strip()
@@ -5556,49 +5555,65 @@ def _history(world: World, arg: str) -> str:
         return f"{subject_type}:{subject_id}"
 
     def _format_entries(
-        heading: str, rows: list, *, show_subject: bool = False
+        access_for: str, rows: list, *, show_subject: bool = False
     ) -> str:
-        if not rows:
-            return fmt.join_blocks(
-                fmt.section(heading),
-                fmt.hint("No history entries yet."),
-                gap=0,
-            )
-        lines = [fmt.section(heading)]
+        """
+        SKYLINE history report::
+
+            SKYLINE  ACCESS HISTORY FOR SELF-0001 {title}
+              > HST-001 HISTORY TYPE: rename
+               NOTATION: …
+               TIMEMARK: CYC ʞ · U…
+            SKYLINE  RECORDS RECEIVED. END OF REPORT.
+        """
+        blocks: list[str] = []
         for r in rows:
-            pn, rn, tn = _where_names(r)
-            note = r["note"] or ""
+            pn, _rn, tn = _where_names(r)
+            note = (r["note"] or "").strip()
             if show_subject:
                 sub = _subject_label(
                     r["subject_type"] or "instance", r["subject_id"] or ""
                 )
                 note = f"{sub}  ·  {note}" if note else sub
-            block = format_history_line(
-                verb=r["verb"] or "record",
-                story_when=r["story_when"] or "@unknown",
-                crafted_at=r["created_at"] or "—",
-                place_name=pn,
-                realm_name=rn,
-                timeline_name=tn,
-                note=note,
-                event_code=r["event_code"] or "",
+            # TIMEMARK: place (classic) · face/timeline · story when · unix
+            place = (pn or "").strip()
+            face = (tn or "").strip()
+            sw = (r["story_when"] or "@unknown").strip() or "@unknown"
+            unix = fmt.skyline_unix(r["created_at"] or "").upper()
+            bits: list[str] = []
+            # Mentalor face already encodes where; skip place if it matches face
+            if place and place != face and not face.startswith("CYC "):
+                bits.append(place)
+            if face:
+                bits.append(face)
+            if sw != "@unknown" or not bits:
+                bits.append(sw)
+            bits.append(unix)
+            timemark = " · ".join(bits)
+            blocks.append(
+                fmt.skyline_history_entry(
+                    event_code=r["event_code"] or "",
+                    verb=r["verb"] or "record",
+                    notation=note or "—",
+                    timemark=timemark,
+                )
             )
-            # Two lines: what happened · dimmed when/where (indented for lists)
-            primary, _, meta = block.partition("\n")
-            lines.append(f"  {primary}")
-            if meta:
-                lines.append(f"    {fmt.hint(meta)}")
-        return "\n".join(lines)
+        return fmt.skyline_history_report(access_for, blocks)
 
     # Shared event lookup: history HST-001 · history event HST-001
     event_raw = arg
     if low.startswith("event "):
         event_raw = arg[6:].strip()
     event_code = parse_history_event_code(event_raw)
+    def _access_for_instance(inst) -> str:
+        ref = (world.short_ref_of(inst.id) or "").strip().lstrip("#") or "—"
+        title = dname(inst.name)
+        return f"{ref} {{{title}}}"
+
     if event_code:
         rows = world.history_for_event(event_code)
         return _format_entries(
-            f"History event · {event_code}",
+            f"EVENT {event_code}",
             rows,
             show_subject=True,
         )
@@ -5608,10 +5623,7 @@ def _history(world: World, arg: str) -> str:
         if not player:
             return fmt.hint("No player set.")
         rows = world.history_for("instance", player.id)
-        ref = world.short_ref_of(player.id)
-        return _format_entries(
-            f"History · {fmt.named_ref(player.name, ref)} (you)", rows
-        )
+        return _format_entries(_access_for_instance(player), rows)
 
     if low == "here" or low.startswith("here "):
         loc = world.player_location()
@@ -5625,20 +5637,14 @@ def _history(world: World, arg: str) -> str:
                     surf = world.get_instance(sid) if sid else None
                     if surf is not None:
                         rows = world.history_for("instance", surf.id)
-                        ref = world.short_ref_of(surf.id)
-                        face = cycle_mod.current_face(cycle_mod.load_state(world))
                         return _format_entries(
-                            f"History · {fmt.named_ref(surf.name, ref)} "
-                            f"(here · {face})",
-                            rows,
+                            _access_for_instance(surf), rows
                         )
             except Exception:
                 pass
             return fmt.hint("Nowhere.")
         rows = world.history_for("instance", loc.id)
-        return _format_entries(
-            f"History · {dname(loc.name)} (place)", rows
-        )
+        return _format_entries(_access_for_instance(loc), rows)
 
     if low.startswith("ven "):
         target = arg[4:].strip()
@@ -5646,7 +5652,7 @@ def _history(world: World, arg: str) -> str:
         if not ven:
             return fmt.err(f"No VEN matching {target!r}.")
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"History · {ven.name} [{ven.slug}]", rows)
+        return _format_entries(f"VEN {ven.slug} {{{ven.name}}}", rows)
 
     if low.startswith("on "):
         target = arg[3:].strip()
@@ -5654,22 +5660,16 @@ def _history(world: World, arg: str) -> str:
         if err or thing is None:
             return err or fmt.err(f"No match for {target!r}.")
         rows = world.history_for("instance", thing.id)
-        ref = world.short_ref_of(thing.id)
-        return _format_entries(
-            f"History · {fmt.named_ref(thing.name, ref)}", rows
-        )
+        return _format_entries(_access_for_instance(thing), rows)
 
     thing, err = _resolve_instance_target(world, arg)
     if thing is not None:
         rows = world.history_for("instance", thing.id)
-        ref = world.short_ref_of(thing.id)
-        return _format_entries(
-            f"History · {fmt.named_ref(thing.name, ref)}", rows
-        )
+        return _format_entries(_access_for_instance(thing), rows)
     ven = world.find_ven(arg)
     if ven is not None:
         rows = world.history_for("ven", ven.id)
-        return _format_entries(f"History · {ven.name} [{ven.slug}]", rows)
+        return _format_entries(f"VEN {ven.slug} {{{ven.name}}}", rows)
     return fmt.err(
         f"No history subject matching {arg!r}.  "
         f"Try: history on <thing>  ·  history me  ·  history here  ·  "
