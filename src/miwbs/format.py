@@ -291,13 +291,14 @@ def ok(msg: str) -> str:
 
 def success_line(body: str) -> str:
     """
-    Bright-green SUCCESS badge + white body::
+    Bright-green SUCCESS badge + pure white body::
 
         SUCCESS  VEN SELF-0001 Renamed · old → new
     """
+    # #ffffff — plain ``white`` often renders as antique/dim in terminals
     return (
         f"[bold bright_green] SUCCESS [/bold bright_green] "
-        f"[white]{safe(body)}[/white]"
+        f"[#ffffff]{safe(body)}[/#ffffff]"
     )
 
 

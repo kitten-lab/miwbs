@@ -128,8 +128,17 @@ def format_history_line(
     event = (verb or "record").strip() or "record"
     explain = (note or "").strip() or "—"
     primary = f"{code}  ·  {event}  ·  {explain}"
+    # Strand: classic realm / timeline; mentalor often has only place + CYC face
+    if r == "—" and t == "—":
+        where = p
+    elif r == "—" and t != "—":
+        where = f"{p}  ·  {t}"
+    elif t == "—" and r != "—":
+        where = f"{p}  ·  {r}"
+    else:
+        where = f"{p}  ·  {r} / {t}"
     meta = (
-        f"story {story_when or '@unknown'}  ·  {p}  ·  {r} / {t}  ·  "
+        f"story {story_when or '@unknown'}  ·  {where}  ·  "
         f"craft {crafted_at or '—'}"
     )
     return f"{primary}\n{meta}"
@@ -161,6 +170,9 @@ def resolve_history_where(
     Resolve place + realm + timeline ids and display names for a history row.
 
     Prefer explicit ids; fill gaps from the player's current location.
+    Day of Days / mentalor: no place — use remember surface (SELF) as
+    ``place`` and stamp the current cycle face into ``timeline_name``
+    (e.g. ``CYC ʞ``) so rows never read as Nowhere / — / —.
     Names are snapshots of *current* titles at record time (call once per act).
     """
     from .ids import display_name
@@ -169,6 +181,7 @@ def resolve_history_where(
     place_id = place_instance_id
     realm_id = realm_instance_id
     tl_id = timeline_instance_id
+    mentalor_face: str | None = None
     if loc is not None:
         if not place_id:
             place_id = loc.id
@@ -176,6 +189,17 @@ def resolve_history_where(
             realm_id = loc.realm_instance_id
         if not tl_id:
             tl_id = loc.timeline_instance_id
+    else:
+        # Mentalor / empty stage: remember surface holds the "here"
+        try:
+            from . import cycle as cycle_mod
+
+            if cycle_mod.is_mentalor(world):
+                if not place_id:
+                    place_id = cycle_mod.remember_surface_id(world)
+                mentalor_face = cycle_mod.current_face(cycle_mod.load_state(world))
+        except Exception:
+            mentalor_face = None
 
     def _name(iid: str | None) -> str:
         if not iid:
@@ -185,11 +209,15 @@ def resolve_history_where(
             return ""
         return display_name(inst.name)
 
+    timeline_name = _name(tl_id)
+    if not timeline_name and mentalor_face:
+        timeline_name = mentalor_face
+
     return {
         "place_instance_id": place_id,
         "place_name": _name(place_id),
         "realm_instance_id": realm_id,
         "realm_name": _name(realm_id),
         "timeline_instance_id": tl_id,
-        "timeline_name": _name(tl_id),
+        "timeline_name": timeline_name,
     }

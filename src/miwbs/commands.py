@@ -5521,11 +5521,25 @@ def _history(world: World, arg: str) -> str:
                     return dname(inst.name)
             return None
 
-        return (
-            snap("place_name", "place_instance_id"),
-            snap("realm_name", "realm_instance_id"),
-            snap("timeline_name", "timeline_instance_id"),
-        )
+        pn = snap("place_name", "place_instance_id")
+        rn = snap("realm_name", "realm_instance_id")
+        tn = snap("timeline_name", "timeline_instance_id")
+        # Pre-fix mentalor rows: no place snap — live remember surface + face
+        if not pn or not tn:
+            try:
+                from . import cycle as cycle_mod
+
+                if cycle_mod.is_mentalor(world):
+                    if not pn:
+                        sid = cycle_mod.remember_surface_id(world)
+                        surf = world.get_instance(sid) if sid else None
+                        if surf is not None:
+                            pn = dname(surf.name)
+                    if not tn:
+                        tn = cycle_mod.current_face(cycle_mod.load_state(world))
+            except Exception:
+                pass
+        return (pn, rn, tn)
 
     def _subject_label(subject_type: str, subject_id: str) -> str:
         if subject_type == "instance":
@@ -5602,6 +5616,24 @@ def _history(world: World, arg: str) -> str:
     if low == "here" or low.startswith("here "):
         loc = world.player_location()
         if not loc:
+            # Day of Days: "here" is the remember surface (SELF), not Nowhere
+            try:
+                from . import cycle as cycle_mod
+
+                if cycle_mod.is_mentalor(world):
+                    sid = cycle_mod.remember_surface_id(world)
+                    surf = world.get_instance(sid) if sid else None
+                    if surf is not None:
+                        rows = world.history_for("instance", surf.id)
+                        ref = world.short_ref_of(surf.id)
+                        face = cycle_mod.current_face(cycle_mod.load_state(world))
+                        return _format_entries(
+                            f"History · {fmt.named_ref(surf.name, ref)} "
+                            f"(here · {face})",
+                            rows,
+                        )
+            except Exception:
+                pass
             return fmt.hint("Nowhere.")
         rows = world.history_for("instance", loc.id)
         return _format_entries(
