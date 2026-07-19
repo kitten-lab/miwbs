@@ -484,9 +484,9 @@ def _consider_herenow(world: World, arg: str) -> str:
             body = (c.body or "—").strip()
             if c.title:
                 body = f"{c.title}  ·  {body}"
-            # Leading space = empty thinker; classically would be a name
+            # Kras ʞ = zero-point self mark (no named Thinker yet)
             lines.append(
-                f"[{sw}] considered:  {fmt.safe(body)}[/{sw}]"
+                f"[{sw}]ʞ considered:  {fmt.safe(body)}[/{sw}]"
             )
             lines.append(
                 f"    [dim]{fmt.safe(c.crate_uid)}  ·  {fmt.safe(c.tps_uid)}[/dim]"
