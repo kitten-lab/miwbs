@@ -499,7 +499,7 @@ def run_textual(world: World, world_path: Path) -> None:
     from .history import CommandHistory
 
     class HistoryInput(Input):
-        """Input with ↑ / ↓ command history; Alt+A / Alt+←→ for node stream."""
+        """Input with ↑ / ↓ command history; Alt+A / Alt+, . [ ] for node stream."""
 
         BINDINGS = [
             Binding("up", "hist_up", "Prev cmd", show=False, priority=True),
@@ -510,6 +510,11 @@ def run_textual(world: World, world_path: Path) -> None:
             Binding("alt+a", "node_add", "Node +", show=False, priority=True),
             Binding("alt+comma", "node_prev", "Node <", show=False, priority=True),
             Binding("alt+full_stop", "node_next", "Node >", show=False, priority=True),
+            # Same stream: [ ] muscle memory (both named + short forms)
+            Binding("alt+left_square_bracket", "node_prev", "Node <", show=False, priority=True),
+            Binding("alt+right_square_bracket", "node_next", "Node >", show=False, priority=True),
+            Binding("alt+[", "node_prev", "Node <", show=False, priority=True),
+            Binding("alt+]", "node_next", "Node >", show=False, priority=True),
         ]
 
         def __init__(self, *args, **kwargs) -> None:

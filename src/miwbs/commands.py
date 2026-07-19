@@ -3018,7 +3018,7 @@ def _help(arg: str) -> str:
         fmt.hint("consider · consider | title — dialog with ECHO (/fin ends)"),
         fmt.hint("consider note … · lore — notes / contributions on SELF"),
         fmt.hint("cycle · cycle ʞ · cycle 0 — Day of Days / numbered days"),
-        fmt.hint("n+  n>  n<  ·  +  ·  node list  ·  Alt+A  Alt+,  Alt+.  (tui)"),
+        fmt.hint("n+  n>  n<  ·  +  ·  node list  ·  Alt+A  Alt+,/.  Alt+[/]  (tui)"),
         fmt.hint("rename — the name you remember here"),
         fmt.hint("clear · quit"),
         fmt.hint("the rest of the machine is still there — reach it when the story needs a joint"),
