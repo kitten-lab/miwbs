@@ -476,13 +476,21 @@ def _consider_herenow(world: World, arg: str) -> str:
         ]
         if not crates:
             return fmt.hint("No considerations yet.\n  consider <text>  ·  -t title  -d detail  -u unix")
-        lines = [fmt.section("Considerations")]
+        # Face: soft-white "who considered" (blank who at zero) · body
+        #        dim crate · tps marks (no bare u-code on this list)
+        sw = fmt.SOFT_WHITE
+        lines: list[str] = []
         for c in crates:
-            head = (c.title or c.body or "—").strip()
-            if c.title and c.body:
-                head = f"{c.title}  ·  {c.body}"
-            lines.append(f"  {c.crate_uid}  ·  {ch.format_u(c.event_unix)}")
-            lines.append(f"    {fmt.hint(head[:120])}")
+            body = (c.body or "—").strip()
+            if c.title:
+                body = f"{c.title}  ·  {body}"
+            # Leading space = empty thinker; classically would be a name
+            lines.append(
+                f"[{sw}] considered:  {fmt.safe(body)}[/{sw}]"
+            )
+            lines.append(
+                f"    [dim]{fmt.safe(c.crate_uid)}  ·  {fmt.safe(c.tps_uid)}[/dim]"
+            )
         return "\n".join(lines)
 
     # Strip legacy "note" prefix if someone types consider note …
