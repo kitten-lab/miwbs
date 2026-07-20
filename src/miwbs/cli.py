@@ -77,19 +77,25 @@ def run_repl(world: World, world_path: Path) -> None:
         from .multiline_open import (
             commit_multiline_session,
             parse_multiline_opener,
+            seed_initial_body,
         )
         from .text_editor import run_text_editor
 
         ml = parse_multiline_opener(line)
         if ml is not None:
             history.push(line)
+            from .commands import note_last_command
+
+            note_last_command(world, line)
             edited = run_text_editor(
-                initial="",
+                initial=seed_initial_body(world, ml),
                 title=ml.title,
                 studio=ml.studio,
             )
             if edited is None:
-                console.print(fmt.hint("Editor cancelled."))
+                from . import zero_face as face
+
+                console.print(face.error_slot("editor-cancelled", world))
                 continue
             result = commit_multiline_session(world, ml, edited.body)
             if result.message:
@@ -393,14 +399,18 @@ def run_textual(world: World, world_path: Path) -> None:
             from .multiline_open import (
                 commit_multiline_session,
                 parse_multiline_opener,
+                seed_initial_body,
             )
             from .text_editor import StudioBufferResult, make_studio_buffer_screen
 
             ml = parse_multiline_opener(line)
             if ml is not None:
                 cmd.cmd_history.push(line)
+                from .commands import note_last_command
+
+                note_last_command(world, line)
                 screen = make_studio_buffer_screen(
-                    initial="",
+                    initial=seed_initial_body(world, ml),
                     title=ml.title,
                     studio=ml.studio,
                     page_title=None,
@@ -408,8 +418,12 @@ def run_textual(world: World, world_path: Path) -> None:
 
                 def _on_editor_done(edited: StudioBufferResult | None) -> None:
                     if edited is None:
+                        from . import zero_face as face
+
                         self._write_world_turn(
-                            log, line, fmt.hint("Editor cancelled.")
+                            log,
+                            line,
+                            face.error_slot("editor-cancelled", world),
                         )
                     else:
                         result = commit_multiline_session(

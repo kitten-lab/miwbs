@@ -45,6 +45,8 @@ def seed_world_mentalor(conn: sqlite3.Connection) -> None:
     w.set_player(hn_inst)
 
     set_meta(conn, "world_name", "Day of Days")
+    set_meta(conn, "seed_name", "mentalor")
+    set_meta(conn, "seed_flavor", "mentalor")
     set_meta(conn, "seed_version", "mentalor-ʞ-7")
     st = cycle_mod.default_state()
     cycle_mod.save_state(w, st)

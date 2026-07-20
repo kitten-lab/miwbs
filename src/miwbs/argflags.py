@@ -120,10 +120,16 @@ def parse_named_flags(
     raw = (text or "").strip()
     if not raw:
         return NamedFlags()
+    # posix=True treats ' as a quote — so "don't" / "Kras's" explode.
+    # Prefer posix quoting when it works (multi-word "double quotes"); fall
+    # back to non-posix so apostrophes in consideration prose stay intact.
     try:
         tokens = shlex.split(raw, posix=True)
-    except ValueError as e:
-        return NamedFlags(error=f"Could not parse flags: {e}")
+    except ValueError:
+        try:
+            tokens = shlex.split(raw, posix=False)
+        except ValueError as e:
+            return NamedFlags(error=f"Could not parse flags: {e}")
 
     def is_flag_token(t: str) -> bool:
         """True for --foo / -t; False for bare words and negative numbers (-100)."""

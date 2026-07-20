@@ -46,7 +46,7 @@ class StudioBufferResult:
 class MultilineSession:
     """Parsed ``<<`` / ``<<studio`` opener ready to commit a body."""
 
-    kind: str  # "desc" | "book_page" | "lore" | "consider"
+    kind: str  # "desc" | "book_page" | "lore" | "consider" | "face_edit"
     studio: bool = False
     # @desc: full arg after @desc without the << marker, e.g. "" or "on quill"
     desc_rest: str = ""
@@ -59,6 +59,8 @@ class MultilineSession:
     lore_when: str = ""
     # consider <<studio: optional flags / prefix before << (-t -d -u …)
     consider_rest: str = ""
+    # @godmode edit <slot> <<studio
+    face_slot: str = ""
     initial_body: str = ""
     title: str = "Edit text"
 
@@ -81,6 +83,9 @@ def editor_title_for(session: MultilineSession) -> str:
         return f"lore add · {mode}"
     if session.kind == "consider":
         return f"consider · {mode}"
+    if session.kind == "face_edit":
+        slot = (session.face_slot or "?").strip()
+        return f"godmode · {slot} · {mode}"
     return f"Edit · {mode}"
 
 

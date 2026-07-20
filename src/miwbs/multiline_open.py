@@ -1,4 +1,4 @@
-"""Parse << / <<studio openers — consider only (zero point)."""
+"""Parse << / <<studio openers — consider + godmode face edit (zero point)."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ def parse_multiline_opener(line: str) -> MultilineSession | None:
     """
     consider <<studio
     consider -e -100 <<studio
+    @godmode edit consider-hint <<studio
+    godmode edit live-echo <<studio
     """
     s = line.strip()
     if not s or "<<" not in s:
@@ -35,6 +37,12 @@ def parse_multiline_opener(line: str) -> MultilineSession | None:
         "wonder "
     ) or low == "wonder":
         return _parse_consider(s)
+    if (
+        low.startswith("@godmode")
+        or low.startswith("godmode")
+        or low.startswith("@god")
+    ):
+        return _parse_godmode(s)
     return None
 
 
@@ -65,8 +73,60 @@ def _parse_consider(s: str) -> MultilineSession | None:
     return sess
 
 
+def _parse_godmode(s: str) -> MultilineSession | None:
+    """
+    @godmode edit <slot> <<studio
+    @god edit <slot> <<studio
+    godmode edit <slot> <<
+    """
+    low = s.lower().strip()
+    # Longest prefix first (@godmode before @god)
+    if low.startswith("@godmode"):
+        rest = s[len("@godmode") :].strip()
+    elif low.startswith("godmode"):
+        rest = s[len("godmode") :].strip()
+    elif low.startswith("@god"):
+        rest = s[len("@god") :].strip()
+    else:
+        return None
+
+    stripped = _strip_heredoc(rest)
+    if stripped is None:
+        return None
+    head, studio = stripped
+    parts = head.split()
+    if len(parts) < 2:
+        return None
+    if parts[0].lower() != "edit":
+        return None
+    slot_tok = parts[1].strip()
+    if not slot_tok:
+        return None
+    # Resolve name or short code (A01) at parse time when possible
+    from . import zero_face as face
+
+    resolved = face.resolve_slot(slot_tok)
+    slot = resolved if resolved else slot_tok.lower().replace("_", "-")
+    sess = MultilineSession(
+        kind="face_edit",
+        studio=studio,
+        face_slot=slot,
+    )
+    sess.title = editor_title_for(sess)
+    return sess
+
+
 def seed_initial_body(world, session: MultilineSession) -> str:
-    return ""
+    if session.kind == "face_edit" and session.face_slot:
+        from . import zero_face as face
+
+        slot = face.resolve_slot(session.face_slot) or face.normalize_slot(
+            session.face_slot
+        )
+        if not face.is_slot(slot):
+            return f"# unknown slot: {session.face_slot}\n# @god voxlist\n"
+        return face.edit_seed(slot, world)
+    return session.initial_body or ""
 
 
 def seed_page_title(world, session: MultilineSession) -> str | None:
@@ -80,20 +140,32 @@ def commit_multiline_session(
     *,
     page_title: str | None = None,
 ):
-    """Apply editor body — consider crates only."""
+    """Apply editor body — consider crates or godmode face slots."""
     from . import chronicle as ch
     from .argflags import CONSIDER_FLAG_ALIASES, parse_named_flags
     from .commands import CommandResult
     from . import format as fmt
+    from . import zero_face as face
 
     _ = page_title
+
+    if session.kind == "face_edit":
+        return _commit_face_edit(world, session, body)
+
     body = (body or "").strip()
     if not body:
-        return CommandResult(True, fmt.hint("Empty buffer; cancelled."))
+        return CommandResult(
+            True, face.error_slot("empty-buffer", world)
+        )
 
     if session.kind != "consider":
         return CommandResult(
-            True, fmt.err(f"Unknown multiline kind {session.kind!r}")
+            True,
+            face.error_slot(
+                "unexpected",
+                world,
+                detail=f"Unknown multiline kind {session.kind!r}",
+            ),
         )
 
     event_unix: int | None = None
@@ -116,6 +188,37 @@ def commit_multiline_session(
         event_unix=event_unix,
         writer=None,
     )
-    echo = ch.format_echo_considered(body)
-    hist = ch.format_histories_stored(crate)
+    echo = ch.format_echo_considered(body, world)
+    hist = ch.format_histories_stored(crate, world)
     return CommandResult(True, f"{echo}\n\n{hist}")
+
+
+def _commit_face_edit(world, session: MultilineSession, body: str):
+    from .commands import CommandResult
+    from . import format as fmt
+    from . import zero_face as face
+    from .studio_text import prepare_stored_text
+
+    slot = face.resolve_slot(session.face_slot or "") or face.normalize_slot(
+        session.face_slot or ""
+    )
+    if not face.is_slot(slot):
+        return CommandResult(
+            True,
+            face.error_slot(
+                "godmode-unknown", world, slot=session.face_slot or slot
+            ),
+        )
+    if body is None:
+        return CommandResult(True, face.error_slot("empty-buffer", world))
+    # Preserve intentional whitespace / trailing newlines the user crafted,
+    # but strip a single final newline from editor habit.
+    text = body
+    if text.endswith("\n") and not text.endswith("\n\n"):
+        text = text[:-1]
+    # <<studio → store with .format: studio so print uses studio whitelist parser
+    text = prepare_stored_text(text, studio=bool(session.studio))
+    face.save_override(world, slot, text)
+    return CommandResult(
+        True, face.success_slot("godmode-saved", world, slot=slot)
+    )

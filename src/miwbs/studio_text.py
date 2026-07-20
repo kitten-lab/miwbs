@@ -7,7 +7,7 @@ mode are stored with a leading magic header and rendered to safe Rich markup.
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from .format import safe
 
@@ -52,34 +52,46 @@ _COLOR_SPAN_RE = re.compile(
 # Trailing punctuation often glued to bare URLs in prose
 _URL_TRAIL_CHARS = ".,;:!?)]}\"'>"
 
-# Whitelist name → Rich color/style token (no free-form injection)
+# Legacy name map — kept for old prose; new vox/studio face should use C1–C8.
+# Runtime paint prefers :func:`resolve_studio_color` → colorbank when *world* set.
 STUDIO_COLORS: dict[str, str] = {
-    # full names
-    "yellow": "yellow",
-    "red": "red",
-    "green": "green",
-    "cyan": "cyan",
-    "blue": "blue",
-    "magenta": "magenta",
-    "white": "white",
-    "black": "bright_black",
-    # short aliases
-    "y": "yellow",
-    "r": "red",
-    "g": "green",
-    "c": "cyan",
-    "b": "blue",
-    "m": "magenta",
-    "w": "white",
-    # product / semantic
-    "gold": "#d4a574",  # STUDIO Writer brand warmth
-    "accent": "bright_cyan",
-    "a": "bright_cyan",
-    "ok": "green",
-    "warn": "yellow",
-    "err": "red",
+    # colorbank codes (factory fallback when no world)
+    "c1": "#f3f3f3",
+    "c2": "#9a9aa3",
+    "c3": "#e85d5d",
+    "c4": "#6aa6e8",
+    "c5": "#6bcb8a",
+    "c6": "#e8c84a",
+    "c7": "#b07ce8",
+    "c8": "#e89a4a",
+    # style (not bank slots)
     "dim": "dim",
-    "bright": "bright_white",
+    "bright": "bold",
+    # legacy names (prefer C1–C8 in new copy)
+    "yellow": "#e8c84a",
+    "red": "#e85d5d",
+    "green": "#6bcb8a",
+    "cyan": "#6aa6e8",
+    "blue": "#6aa6e8",
+    "magenta": "#b07ce8",
+    "white": "#f3f3f3",
+    "black": "#9a9aa3",
+    "orange": "#e89a4a",
+    "purple": "#b07ce8",
+    "gray": "#9a9aa3",
+    "grey": "#9a9aa3",
+    "gold": "#e8c84a",
+    "accent": "#6aa6e8",
+    "ok": "#6bcb8a",
+    "warn": "#e8c84a",
+    "err": "#e85d5d",
+    "y": "#e8c84a",
+    "r": "#e85d5d",
+    "g": "#6bcb8a",
+    "b": "#6aa6e8",
+    "m": "#b07ce8",
+    "w": "#f3f3f3",
+    "a": "#6aa6e8",
 }
 
 
@@ -120,7 +132,7 @@ def is_studio(text: str | None) -> bool:
     return detect_format(text or "")[0] == "studio"
 
 
-def render_body(text: str | None) -> str:
+def render_body(text: str | None, world: Any | None = None) -> str:
     """
     Render stored world text: studio dialect or plain escape.
 
@@ -132,7 +144,7 @@ def render_body(text: str | None) -> str:
     if mode == "studio":
         if not body.strip():
             return "[dim](no description)[/dim]"
-        return render_studio_text(body)
+        return render_studio_text(body, world=world)
     # plain — escape entire string; preserve newlines for multi-line descs
     return safe(text)
 
@@ -156,12 +168,42 @@ def _label_col_width(labels: list[str]) -> int:
     return max(_LABEL_COL_MIN, min(_LABEL_COL_MAX, w))
 
 
+def _field_value_continuation(line: str) -> bool:
+    """
+    True if *line* continues the previous ``:label:`` value.
+
+    Used when a multi-line inject (e.g. face ``{body}``) splits across
+    source lines after the first field line.
+
+    Stop at:
+      - blank line (double break ends the hang — free content may follow)
+      - new field, heading, fence, rule, blockquote
+
+    Paragraph breaks *inside* a value still hang when they arrive as
+    embedded ``\\n`` in the field value itself (see ``_render_field_row``).
+    """
+    if not line.strip():
+        return False
+    if _field_row_match(line) is not None:
+        return False
+    if _FENCE_OPEN_RE.match(line):
+        return False
+    if _HEADING_RE.match(line):
+        return False
+    if line.startswith("> "):
+        return False
+    if _RULE_RE.match(line) and line.strip():
+        return False
+    return True
+
+
 def _render_field_row(lab: str, val: str, col_w: int) -> str:
     """
     One field row: label column + value, hard-wrapped under the value column.
 
     Continuations hang at ``col_w + 2`` spaces (padded key + gap) so soft wrap
-    does not slam long values back to column 0.
+    *and* hard newlines inside the value (studio ``{body}`` with line breaks)
+    stay under the same indent as the first value line — not column 0.
     """
     from .measure import CONTENT_MEASURE, wrap_text_hanging
 
@@ -169,19 +211,24 @@ def _render_field_row(lab: str, val: str, col_w: int) -> str:
     hang = col_w + 2  # plain-width prefix before value
     # Value width inside the artboard (label + gap already spent)
     val_w = max(8, CONTENT_MEASURE - hang)
-    segs = wrap_text_hanging(val if val is not None else "", val_w)
+    raw = (val if val is not None else "").replace("\r\n", "\n").replace("\r", "\n")
+    logical_lines = raw.split("\n") if raw else [""]
     rows: list[str] = []
-    for j, seg in enumerate(segs):
-        body = _render_inline(seg)
-        if j == 0:
-            rows.append(f"[dim]{lab_s}[/dim]  {body}")
-        else:
-            rows.append(f"{' ' * hang}{body}")
+    first = True
+    for logical in logical_lines:
+        segs = wrap_text_hanging(logical, val_w)
+        for seg in segs:
+            body = _render_inline(seg)
+            if first:
+                rows.append(f"[dim]{lab_s}[/dim]  {body}")
+                first = False
+            else:
+                rows.append(f"{' ' * hang}{body}")
     return "\n".join(rows)
 
 
-def render_studio_text(source: str) -> str:
-    """Parse Studio Text → Rich markup (whitelist only)."""
+def render_studio_text(source: str, world: Any | None = None) -> str:
+    """Parse Studio Text → Rich markup (whitelist only). Honors world colorbank."""
     text = source.replace("\r\n", "\n").replace("\r", "\n")
     meta, body = _split_frontmatter(text)
     out: list[str] = []
@@ -192,6 +239,22 @@ def render_studio_text(source: str) -> str:
     lines = body.split("\n")
     i = 0
     n = len(lines)
+    # stash world for nested inline color resolve
+    global _RENDER_WORLD
+    _prev = _RENDER_WORLD
+    _RENDER_WORLD = world
+    try:
+        return _render_studio_text_lines(lines, out, i, n)
+    finally:
+        _RENDER_WORLD = _prev
+
+
+_RENDER_WORLD: Any | None = None
+
+
+def _render_studio_text_lines(
+    lines: list[str], out: list[str], i: int, n: int
+) -> str:
     while i < n:
         line = lines[i]
         # fenced block
@@ -227,7 +290,10 @@ def render_studio_text(source: str) -> str:
             i += 1
             continue
 
-        # Contiguous field block — pad keys to one column for the block
+        # Contiguous field block — pad keys to one column for the block.
+        # Multi-line values (e.g. ``:list: {body}`` after body expands with
+        # newlines) fold following non-structural lines into the value so
+        # hang-indent matches the first value column.
         fr = _field_row_match(line)
         if fr is not None:
             block: list[tuple[str, str]] = []
@@ -235,8 +301,17 @@ def render_studio_text(source: str) -> str:
                 fr_i = _field_row_match(lines[i])
                 if fr_i is None:
                     break
-                block.append(fr_i)
+                lab, val = fr_i
                 i += 1
+                cont: list[str] = []
+                while i < n and _field_value_continuation(lines[i]):
+                    cont.append(lines[i])
+                    i += 1
+                # blank line(s) after value are left for the outer loop
+                # (they end hang; free prose after a double break is not stolen)
+                if cont:
+                    val = val + "\n" + "\n".join(cont)
+                block.append((lab, val))
             col_w = _label_col_width([lab for lab, _ in block])
             for lab, val in block:
                 out.append(_render_field_row(lab, val, col_w))
@@ -414,8 +489,20 @@ def _render_fence(lines: list[str], kind: str) -> str:
     return "\n".join(format_fence_box(lines, kind))
 
 
-def resolve_studio_color(name: str) -> str | None:
-    """Map author color name to a Rich token, or None if not on the whitelist."""
+def resolve_studio_color(name: str, world: Any | None = None) -> str | None:
+    """
+    Map studio color token → Rich color.
+
+    Prefer colorbank codes C1–C8 (world overrides when *world* or render
+    context is set). Names are labels only; new face copy should use ``{c1}``.
+    """
+    from . import colorbank as cb
+
+    w = world if world is not None else _RENDER_WORLD
+    tok = cb.resolve_token(name, w)
+    if tok:
+        return tok
+    # legacy / factory map
     return STUDIO_COLORS.get((name or "").strip().lower())
 
 
